@@ -57,5 +57,4 @@ ffigen:
   dart-bool: true
 
 flutter:
-  assets:
-    - assets/web/
+
