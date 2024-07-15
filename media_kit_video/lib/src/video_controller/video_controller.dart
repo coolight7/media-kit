@@ -12,7 +12,6 @@ import 'package:media_kit_video/src/video_controller/platform_video_controller.d
 
 import 'package:media_kit_video/src/video_controller/native_video_controller/native_video_controller.dart';
 import 'package:media_kit_video/src/video_controller/android_video_controller/android_video_controller.dart';
-import 'package:media_kit_video/src/video_controller/web_video_controller/web_video_controller.dart';
 
 /// {@template video_controller}
 ///
@@ -88,13 +87,6 @@ class VideoController {
           notifier.value = result;
         } else if (AndroidVideoController.supported) {
           final result = await AndroidVideoController.create(
-            player,
-            configuration,
-          );
-          platform.complete(result);
-          notifier.value = result;
-        } else if (WebVideoController.supported) {
-          final result = await WebVideoController.create(
             player,
             configuration,
           );
