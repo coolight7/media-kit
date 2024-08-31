@@ -31,7 +31,7 @@ android {
         namespace 'com.alexmercerind.media_kit_libs_android_video'
     }
 
-    compileSdkVersion 31
+    compileSdkVersion 34
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -39,7 +39,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 21
     }
 
     dependencies {
@@ -58,58 +58,10 @@ task downloadDependencies(type: Exec) {
     
     // Download all *.jar dependencies & verify their MD5 checksums.
 
-    def urlDefaultARM64 = "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.5/default-arm64-v8a.jar"
-    def urlDefaultARMEABI = "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.5/default-armeabi-v7a.jar"
-    def urlDefaultX86_64 = "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.5/default-x86_64.jar"
-    def urlDefaultX86 = "https://github.com/media-kit/libmpv-android-video-build/releases/download/v1.1.5/default-x86.jar"
-
-    def destDefaultARM64 = file("$buildDir/v1.1.5/default-arm64-v8a.jar")
-    def destDefaultARMEABI = file("$buildDir/v1.1.5/default-armeabi-v7a.jar")
-    def destDefaultX86_64 = file("$buildDir/v1.1.5/default-x86_64.jar")
-    def destDefaultX86 = file("$buildDir/v1.1.5/default-x86.jar")
-
-    if (!destDefaultARM64.exists()) {
-        destDefaultARM64.parentFile.mkdirs()
-        destDefaultARM64.withOutputStream { os ->
-            os << new URL(urlDefaultARM64).openStream()
-        }
-    }
-    if (!destDefaultARMEABI.exists()) {
-        destDefaultARMEABI.parentFile.mkdirs()
-        destDefaultARMEABI.withOutputStream { os ->
-            os << new URL(urlDefaultARMEABI).openStream()
-        }
-    }
-    if (!destDefaultX86_64.exists()) {
-        destDefaultX86_64.parentFile.mkdirs()
-        destDefaultX86_64.withOutputStream { os ->
-            os << new URL(urlDefaultX86_64).openStream()
-        }
-    }
-    if (!destDefaultX86.exists()) {
-        destDefaultX86.parentFile.mkdirs()
-        destDefaultX86.withOutputStream { os ->
-            os << new URL(urlDefaultX86).openStream()
-        }
-    }
-
-    def md5DefaultARM64 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destDefaultARM64.toPath())).encodeHex().toString()
-    def md5DefaultARMEABI = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destDefaultARMEABI.toPath())).encodeHex().toString()
-    def md5DefaultX86_64 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destDefaultX86_64.toPath())).encodeHex().toString()
-    def md5DefaultX86 = MessageDigest.getInstance("MD5").digest(Files.readAllBytes(destDefaultX86.toPath())).encodeHex().toString()
-
-    if (md5DefaultARM64 != "5f521b08692d7fef73c5df9bcc00ca4d") {
-        throw new GradleException("media_kit: arm64-v8a JAR verification failed.")
-    }
-    if (md5DefaultARMEABI != "08d500ca1116c13e9c1296cc6f2207b0") {
-        throw new GradleException("media_kit: armeabi-v7a JAR verification failed.")
-    }
-    if (md5DefaultX86_64 != "0880d5fbc3ff0053409704617f54cb55") {
-        throw new GradleException("media_kit: x86_64 JAR verification failed.")
-    }
-    if (md5DefaultX86 != "f6f51aa42b30d747099506cdc3277352") {
-        throw new GradleException("media_kit: x86 JAR verification failed.")
-    }
+    def destDefaultARM64 = file("../outlibs/encoders-gpl-arm64-v8a.jar")
+    def destDefaultARMEABI = file("../outlibs/encoders-gpl-armeabi-v7a.jar")
+    def destDefaultX86_64 = file("../outlibs/encoders-gpl-x86_64.jar")
+    def destDefaultX86 = file("../outlibs/encoders-gpl-x86.jar")
 
     copy {
         from destDefaultARM64

@@ -17,31 +17,8 @@ add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 
 # ------------------------------------------------------------------------------
 function(download_and_verify url md5 locationForArchive)
-  # Check if the archive exists.
-  if(EXISTS "${locationForArchive}")
-    file(MD5 "${locationForArchive}" ARCHIVE_MD5)
-
-    # If MD5 doesn't match, delete the archive to download again.
-    if(NOT md5 STREQUAL ARCHIVE_MD5)
-      file(REMOVE "${locationForArchive}")
-      message(STATUS "MD5 mismatch. File deleted.")
-    endif()
-  endif()
-
-  # Download the archive if it doesn't exist.
   if(NOT EXISTS "${locationForArchive}")
-    message(STATUS "Downloading archive from ${url}...")
-    file(DOWNLOAD "${url}" "${locationForArchive}")
-    message(STATUS "Downloaded archive to ${locationForArchive}.")
-
-    # Verify MD5 of the newly downloaded file.
-    file(MD5 "${locationForArchive}" ARCHIVE_MD5)
-
-    if(md5 STREQUAL ARCHIVE_MD5)
-      message(STATUS "${locationForArchive} Verification successful.")
-    else()
-      message(FATAL_ERROR "${locationForArchive} Integrity check failed, please try to re-build project again.")
-    endif()
+    message(FATAL_ERROR "${locationForArchive} Integrity check failed, please try to re-build project again.")
   endif()
 endfunction()
 
@@ -64,14 +41,14 @@ function(check_directory_exists_and_not_empty dir result_var)
 endfunction()
 
 # libmpv archive containing the pre-built shared libraries & headers.
-set(LIBMPV "mpv-dev-x86_64-20230924-git-652a1dd.7z")
+set(LIBMPV "mpv.7z")
 
 # Download URL & MD5 hash of the libmpv archive.
 set(LIBMPV_URL "https://github.com/media-kit/libmpv-win32-video-build/releases/download/2023-09-24/${LIBMPV}")
 set(LIBMPV_MD5 "a832ef24b3a6ff97cd2560b5b9d04cd8")
 
 # Download location of the libmpv archive.
-set(LIBMPV_ARCHIVE "${CMAKE_BINARY_DIR}/${LIBMPV}")
+set(LIBMPV_ARCHIVE "${CMAKE_CURRENT_LIST_DIR}/../outlibs/${LIBMPV}")
 set(LIBMPV_SRC "${CMAKE_BINARY_DIR}/libmpv")
 
 download_and_verify(
@@ -107,7 +84,7 @@ set(ANGLE_URL "https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES/
 set(ANGLE_MD5 "e5be38d0e1c5cbe5f70e53701ea8b6c9")
 
 # Download location of the ANGLE archive.
-set(ANGLE_ARCHIVE "${CMAKE_BINARY_DIR}/${ANGLE}")
+set(ANGLE_ARCHIVE "${CMAKE_CURRENT_LIST_DIR}/../outlibs/${ANGLE}")
 set(ANGLE_SRC "${CMAKE_BINARY_DIR}/ANGLE")
 
 download_and_verify(
