@@ -3,7 +3,7 @@
 /// Copyright © 2021 & onwards, Julien Muret <birros@protonmail.com>.
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
-import 'package:flutter/widgets.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// {@template wakelock}
 /// Wakelock
@@ -36,7 +36,11 @@ class Wakelock {
 
   /// Acquires the wakelock if enabled count is greater than 0.
   void _update() {
-    debugPrint('media_kit: wakelock: _count = $_count');
+    if (_count > 0) {
+      WakelockPlus.enable().catchError((_) {});
+    } else {
+      WakelockPlus.disable().catchError((_) {});
+    }
   }
 
   /// Whether the wakelock is enabled for this instance.

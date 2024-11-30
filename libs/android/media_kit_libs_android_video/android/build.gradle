@@ -47,9 +47,8 @@ android {
     }
 }
 
-task downloadDependencies(type: Exec) {
-
-    // Delete previously created /output subdirectory.
+task downloadDependencies(type: Exec) {   
+        // Delete previously created /output subdirectory.
 
     def outputDir = file("$buildDir/output")
     if (outputDir.exists()) {
@@ -65,19 +64,19 @@ task downloadDependencies(type: Exec) {
 
     copy {
         from destDefaultARM64
-        into "$buildDir/output"
+        into outputDir
     }
     copy {
         from destDefaultARMEABI
-        into "$buildDir/output"
+        into outputDir
     }
     copy {
         from destDefaultX86_64
-        into "$buildDir/output"
+        into outputDir
     }
     copy {
         from destDefaultX86
-        into "$buildDir/output"
+        into outputDir
     }
 }
 
