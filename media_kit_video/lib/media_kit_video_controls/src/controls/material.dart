@@ -5,12 +5,14 @@
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 // ignore_for_file: non_constant_identifier_names
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-
-import 'package:media_kit_video/media_kit_video_controls/src/controls/methods/video_state.dart';
 import 'package:media_kit_video/media_kit_video_controls/src/controls/extensions/duration.dart';
+import 'package:media_kit_video/media_kit_video_controls/src/controls/methods/video_state.dart';
 import 'package:media_kit_video/media_kit_video_controls/src/controls/widgets/video_controls_theme_data_injector.dart';
+import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
+import 'package:volume_controller/volume_controller.dart';
 
 /// {@template material_video_controls}
 ///
@@ -158,6 +160,12 @@ class MaterialVideoControlsThemeData {
   /// giving more or less space to each one based on the specified ratios.
   final List<int> seekOnDoubleTapLayoutWidgetRatios;
 
+  /// Duration of seek on double tap backward.
+  final Duration seekOnDoubleTapBackwardDuration;
+
+  /// Duration of seek on double tap forward.
+  final Duration seekOnDoubleTapForwardDuration;
+
   /// Whether the controls are initially visible.
   final bool visibleOnMount;
 
@@ -280,6 +288,8 @@ class MaterialVideoControlsThemeData {
     this.seekOnDoubleTapEnabledWhileControlsVisible = true,
     this.seekOnDoubleTapLayoutTapsRatios = const [1, 1, 1],
     this.seekOnDoubleTapLayoutWidgetRatios = const [1, 1, 1],
+    this.seekOnDoubleTapBackwardDuration = const Duration(seconds: 10),
+    this.seekOnDoubleTapForwardDuration = const Duration(seconds: 10),
     this.visibleOnMount = false,
     this.speedUpOnLongPress = false,
     this.speedUpFactor = 2.0,
@@ -339,6 +349,8 @@ class MaterialVideoControlsThemeData {
     bool? seekOnDoubleTapEnabledWhileControlsVisible,
     List<int>? seekOnDoubleTapLayoutTapsRatios,
     List<int>? seekOnDoubleTapLayoutWidgetRatios,
+    Duration? seekOnDoubleTapBackwardDuration,
+    Duration? seekOnDoubleTapForwardDuration,
     bool? visibleOnMount,
     bool? speedUpOnLongPress,
     double? speedUpFactor,
@@ -392,6 +404,10 @@ class MaterialVideoControlsThemeData {
           this.seekOnDoubleTapLayoutTapsRatios,
       seekOnDoubleTapLayoutWidgetRatios: seekOnDoubleTapLayoutWidgetRatios ??
           this.seekOnDoubleTapLayoutWidgetRatios,
+      seekOnDoubleTapBackwardDuration: seekOnDoubleTapBackwardDuration ??
+          this.seekOnDoubleTapBackwardDuration,
+      seekOnDoubleTapForwardDuration:
+          seekOnDoubleTapForwardDuration ?? this.seekOnDoubleTapForwardDuration,
       visibleOnMount: visibleOnMount ?? this.visibleOnMount,
       speedUpOnLongPress: speedUpOnLongPress ?? this.speedUpOnLongPress,
       speedUpFactor: speedUpFactor ?? this.speedUpFactor,
@@ -488,6 +504,16 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
   late bool visible = _theme(context).visibleOnMount;
   Timer? _timer;
 
+  double _brightnessValue = 0.0;
+  bool _brightnessIndicator = false;
+  Timer? _brightnessTimer;
+  double _currentRate = 1.0;
+  double _volumeValue = 0.0;
+  bool _volumeIndicator = false;
+  Timer? _volumeTimer;
+  // The default event stream in package:volume_controller is buggy.
+  bool _volumeInterceptEventStream = false;
+
   Offset _dragInitialDelta =
       Offset.zero; // Initial position for horizontal drag
   int swipeDuration = 0; // Duration to seek in video
@@ -527,6 +553,7 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
     setState(() {
       _speedUpIndicator = true;
     });
+    _currentRate = controller(context).player.state.rate;
     controller(context).player.setRate(_theme(context).speedUpFactor);
   }
 
@@ -534,7 +561,7 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
     setState(() {
       _speedUpIndicator = false;
     });
-    controller(context).player.setRate(1.0);
+    controller(context).player.setRate(_currentRate);
   }
 
   @override
@@ -588,6 +615,14 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
     for (final subscription in subscriptions) {
       subscription.cancel();
     }
+    // --------------------------------------------------
+    // package:screen_brightness
+    Future.microtask(() async {
+      try {
+        await ScreenBrightnessPlatform.instance
+            .resetApplicationScreenBrightness();
+      } catch (_) {}
+    });
     // --------------------------------------------------
     _timerSeekBackwardButton?.cancel();
     _timerSeekForwardButton?.cancel();
@@ -751,6 +786,81 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
   @override
   void initState() {
     super.initState();
+    // --------------------------------------------------
+    // package:volume_controller
+    Future.microtask(() async {
+      try {
+        VolumeController().showSystemUI = false;
+        _volumeValue = await VolumeController().getVolume();
+        VolumeController().listener((value) {
+          if (mounted && !_volumeInterceptEventStream) {
+            setState(() {
+              _volumeValue = value;
+            });
+          }
+        });
+      } catch (_) {}
+    });
+    // --------------------------------------------------
+    // --------------------------------------------------
+    // package:screen_brightness
+    Future.microtask(() async {
+      try {
+        _brightnessValue = await ScreenBrightnessPlatform.instance.application;
+        ScreenBrightnessPlatform.instance.onApplicationScreenBrightnessChanged
+            .listen((value) {
+          if (mounted) {
+            setState(() {
+              _brightnessValue = value;
+            });
+          }
+        });
+      } catch (_) {}
+    });
+    // --------------------------------------------------
+  }
+
+  Future<void> setVolume(double value) async {
+    // --------------------------------------------------
+    // package:volume_controller
+    try {
+      VolumeController().setVolume(value);
+    } catch (_) {}
+    setState(() {
+      _volumeValue = value;
+      _volumeIndicator = true;
+      _volumeInterceptEventStream = true;
+    });
+    _volumeTimer?.cancel();
+    _volumeTimer = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          _volumeIndicator = false;
+          _volumeInterceptEventStream = false;
+        });
+      }
+    });
+    // --------------------------------------------------
+  }
+
+  Future<void> setBrightness(double value) async {
+    // --------------------------------------------------
+    // package:screen_brightness
+    try {
+      await ScreenBrightnessPlatform.instance
+          .setApplicationScreenBrightness(value);
+    } catch (_) {}
+    setState(() {
+      _brightnessIndicator = true;
+    });
+    _brightnessTimer?.cancel();
+    _brightnessTimer = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          _brightnessIndicator = false;
+        });
+      }
+    });
     // --------------------------------------------------
   }
 
@@ -1015,6 +1125,122 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
                   ),
                 ),
               ),
+              // Volume Indicator.
+              IgnorePointer(
+                child: AnimatedOpacity(
+                  curve: Curves.easeInOut,
+                  opacity: (!mount ||
+                              _theme(context)
+                                  .gesturesEnabledWhileControlsVisible) &&
+                          _volumeIndicator
+                      ? 1.0
+                      : 0.0,
+                  duration: _theme(context).controlsTransitionDuration,
+                  child: _theme(context)
+                          .volumeIndicatorBuilder
+                          ?.call(context, _volumeValue) ??
+                      Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0x88000000),
+                          borderRadius: BorderRadius.circular(64.0),
+                        ),
+                        height: 52.0,
+                        width: 108.0,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 52.0,
+                              width: 42.0,
+                              alignment: Alignment.centerRight,
+                              child: Icon(
+                                _volumeValue == 0.0
+                                    ? Icons.volume_off
+                                    : _volumeValue < 0.5
+                                        ? Icons.volume_down
+                                        : Icons.volume_up,
+                                color: const Color(0xFFFFFFFF),
+                                size: 24.0,
+                              ),
+                            ),
+                            const SizedBox(width: 8.0),
+                            Expanded(
+                              child: Text(
+                                '${(_volumeValue * 100.0).round()}%',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 14.0,
+                                  color: Color(0xFFFFFFFF),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16.0),
+                          ],
+                        ),
+                      ),
+                ),
+              ),
+              // Brightness Indicator.
+              IgnorePointer(
+                child: AnimatedOpacity(
+                  curve: Curves.easeInOut,
+                  opacity: (!mount ||
+                              _theme(context)
+                                  .gesturesEnabledWhileControlsVisible) &&
+                          _brightnessIndicator
+                      ? 1.0
+                      : 0.0,
+                  duration: _theme(context).controlsTransitionDuration,
+                  child: _theme(context)
+                          .brightnessIndicatorBuilder
+                          ?.call(context, _brightnessValue) ??
+                      Container(
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0x88000000),
+                          borderRadius: BorderRadius.circular(64.0),
+                        ),
+                        height: 52.0,
+                        width: 108.0,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 52.0,
+                              width: 42.0,
+                              alignment: Alignment.centerRight,
+                              child: Icon(
+                                _brightnessValue < 1.0 / 3.0
+                                    ? Icons.brightness_low
+                                    : _brightnessValue < 2.0 / 3.0
+                                        ? Icons.brightness_medium
+                                        : Icons.brightness_high,
+                                color: const Color(0xFFFFFFFF),
+                                size: 24.0,
+                              ),
+                            ),
+                            const SizedBox(width: 8.0),
+                            Expanded(
+                              child: Text(
+                                '${(_brightnessValue * 100.0).round()}%',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 14.0,
+                                  color: Color(0xFFFFFFFF),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16.0),
+                          ],
+                        ),
+                      ),
+                ),
+              ),
               // Speedup Indicator.
               IgnorePointer(
                 child: Padding(
@@ -1133,6 +1359,8 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
                                   opacity: _hideSeekBackwardButton ? 0 : 1.0,
                                   duration: const Duration(milliseconds: 200),
                                   child: _BackwardSeekIndicator(
+                                    duration: _theme(context)
+                                        .seekOnDoubleTapBackwardDuration,
                                     onChanged: (value) {
                                       _seekBarDeltaValueNotifier.value = -value;
                                     },
@@ -1173,10 +1401,10 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
                         if (_theme(context)
                                 .seekOnDoubleTapLayoutWidgetRatios[1] >
                             0)
-                          Expanded(
-                              flex: _theme(context)
-                                  .seekOnDoubleTapLayoutWidgetRatios[1],
-                              child: const SizedBox()),
+                          Spacer(
+                            flex: _theme(context)
+                                .seekOnDoubleTapLayoutWidgetRatios[1],
+                          ),
                         Expanded(
                           flex: _theme(context)
                               .seekOnDoubleTapLayoutWidgetRatios[2],
@@ -1185,6 +1413,8 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
                                   opacity: _hideSeekForwardButton ? 0 : 1.0,
                                   duration: const Duration(milliseconds: 200),
                                   child: _ForwardSeekIndicator(
+                                    duration: _theme(context)
+                                        .seekOnDoubleTapForwardDuration,
                                     onChanged: (value) {
                                       _seekBarDeltaValueNotifier.value = value;
                                     },
@@ -1339,6 +1569,7 @@ class MaterialSeekBarState extends State<MaterialSeekBar> {
       tapped = true;
       slider = percent.clamp(0.0, 1.0);
     });
+    controller(context).player.seek(duration * slider);
   }
 
   void onPointerDown() {
@@ -1351,13 +1582,11 @@ class MaterialSeekBarState extends State<MaterialSeekBar> {
   void onPointerUp() {
     widget.onSeekEnd?.call();
     setState(() {
-      tapped = false;
-    });
-    controller(context).player.seek(duration * slider);
-    setState(() {
       // Explicitly set the position to prevent the slider from jumping.
+      tapped = false;
       position = duration * slider;
     });
+    controller(context).player.seek(duration * slider);
   }
 
   void onPanStart(DragStartDetails e, BoxConstraints constraints) {
@@ -1771,10 +2000,12 @@ class MaterialPositionIndicatorState extends State<MaterialPositionIndicator> {
 }
 
 class _BackwardSeekIndicator extends StatefulWidget {
+  final Duration duration;
   final void Function(Duration) onChanged;
   final void Function(Duration) onSubmitted;
   const _BackwardSeekIndicator({
     Key? key,
+    required this.duration,
     required this.onChanged,
     required this.onSubmitted,
   }) : super(key: key);
@@ -1784,7 +2015,7 @@ class _BackwardSeekIndicator extends StatefulWidget {
 }
 
 class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator> {
-  Duration value = const Duration(seconds: 10);
+  late Duration value = widget.duration;
 
   Timer? timer;
 
@@ -1858,10 +2089,12 @@ class _BackwardSeekIndicatorState extends State<_BackwardSeekIndicator> {
 }
 
 class _ForwardSeekIndicator extends StatefulWidget {
+  final Duration duration;
   final void Function(Duration) onChanged;
   final void Function(Duration) onSubmitted;
   const _ForwardSeekIndicator({
     Key? key,
+    required this.duration,
     required this.onChanged,
     required this.onSubmitted,
   }) : super(key: key);
@@ -1871,7 +2104,7 @@ class _ForwardSeekIndicator extends StatefulWidget {
 }
 
 class _ForwardSeekIndicatorState extends State<_ForwardSeekIndicator> {
-  Duration value = const Duration(seconds: 10);
+  late Duration value = widget.duration;
 
   Timer? timer;
 

@@ -139,7 +139,7 @@ class Video extends StatefulWidget {
 
 class VideoState extends State<Video> with WidgetsBindingObserver {
   late final _contextNotifier = DisposeSafeNotifier<BuildContext?>(null);
-  late ValueNotifier<VideoViewParameters> _videoViewParametersNotifier;
+  late ValueNotifier<VideoViewParameters> videoViewParametersNotifier;
   late bool _disposeNotifiers;
   final _subtitleViewKey = GlobalKey<SubtitleViewState>();
   final _wakelock = Wakelock();
@@ -187,8 +187,8 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     VideoControlsBuilder? controls,
     SubtitleViewConfiguration? subtitleViewConfiguration,
   }) {
-    _videoViewParametersNotifier.value =
-        _videoViewParametersNotifier.value.copyWith(
+    videoViewParametersNotifier.value =
+        videoViewParametersNotifier.value.copyWith(
       width: width,
       height: height,
       fit: fit,
@@ -203,7 +203,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
 
   @override
   void didChangeDependencies() {
-    _videoViewParametersNotifier =
+    videoViewParametersNotifier =
         media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
               context,
             )?.videoViewParametersNotifier ??
@@ -232,7 +232,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
   void didUpdateWidget(Video oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final currentParams = _videoViewParametersNotifier.value;
+    final currentParams = videoViewParametersNotifier.value;
 
     final newParams = currentParams.copyWith(
       width:
@@ -262,7 +262,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
 
     if (newParams != currentParams) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _videoViewParametersNotifier.value = newParams;
+        videoViewParametersNotifier.value = newParams;
       });
     }
   }
@@ -286,6 +286,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
         }
       }
     }
+    super.didChangeAppLifecycleState(state);
   }
 
   @override
@@ -348,7 +349,7 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
       subscription.cancel();
     }
     if (_disposeNotifiers) {
-      _videoViewParametersNotifier.dispose();
+      videoViewParametersNotifier.dispose();
       _contextNotifier.dispose();
       VideoStateInheritedWidgetContextNotifierState.fallback.remove(this);
     }
@@ -363,9 +364,9 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     return media_kit_video_controls.VideoStateInheritedWidget(
       state: this as dynamic,
       contextNotifier: _contextNotifier,
-      videoViewParametersNotifier: _videoViewParametersNotifier,
+      videoViewParametersNotifier: videoViewParametersNotifier,
       child: ValueListenableBuilder<VideoViewParameters>(
-        valueListenable: _videoViewParametersNotifier,
+        valueListenable: videoViewParametersNotifier,
         builder: (context, videoViewParameters, _) {
           return Container(
             clipBehavior: Clip.none,
