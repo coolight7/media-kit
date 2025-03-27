@@ -741,10 +741,6 @@ class _MaterialVideoControlsState extends State<_MaterialVideoControls> {
     return _isInSegment(localX, 2);
   }
 
-  bool _isInCenterSegment(double localX) {
-    return _isInSegment(localX, 1);
-  }
-
   bool _isInLeftSegment(double localX) {
     return _isInSegment(localX, 0);
   }
