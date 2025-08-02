@@ -2383,7 +2383,7 @@ class NativePlayer extends PlatformPlayer {
         'pause': 'yes',
         'keep-open': 'yes',
         'audio-display': 'no',
-        'network-timeout': '5',
+        'network-timeout': '16',
         // https://github.com/mpv-player/mpv/commit/703f1588803eaa428e09c0e5547b26c0fff476a7
         // https://github.com/mpv-android/mpv-android/commit/9e5c3d8a630290fc41edb8b03aeafa3bc4c45955
         'scale': 'bilinear',
