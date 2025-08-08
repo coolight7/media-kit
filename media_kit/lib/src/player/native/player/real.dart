@@ -22,9 +22,6 @@ import 'package:media_kit/src/models/media/media.dart';
 import 'package:media_kit/src/models/playable.dart';
 import 'package:media_kit/src/models/player_log.dart';
 import 'package:media_kit/src/models/player_state.dart';
-import 'package:media_kit/src/models/playlist_mode.dart';
-import 'package:media_kit/src/models/playlist.dart';
-import 'package:media_kit/src/models/track.dart';
 import 'package:media_kit/src/models/video_params.dart';
 import 'package:media_kit/src/player/native/core/fallback_bitrate_handler.dart';
 import 'package:media_kit/src/player/native/core/initializer.dart';
@@ -150,22 +147,12 @@ class NativePlayer extends PlatformPlayer {
       if (playable is Media) {
         index = 0;
         playlist.add(playable);
-      } else if (playable is Playlist) {
-        index = playable.index;
-        playlist.addAll(playable.medias);
       } else {
         index = -1;
       }
 
       // Keep these [Media] objects in memory.
       current = playlist;
-
-      // External List<Media>:
-      // ---------------------------------------------
-      state = state.copyWith(playlist: Playlist(playlist, index: index));
-      if (!playlistController.isClosed) {
-        playlistController.add(Playlist(playlist, index: index));
-      }
       // ---------------------------------------------
 
       // Restore original state & reset public [PlayerState] & [PlayerStream] values e.g. width=null, height=null, subtitle=['', ''] etc.
@@ -249,7 +236,6 @@ class NativePlayer extends PlatformPlayer {
       await waitForPlayerInitialization;
       await waitForVideoControllerInitializationIfAttached;
 
-      isShuffleEnabled = false;
       isPlayingStateChangeAllowed = false;
       isBufferingStateChangeAllowed = false;
 
@@ -267,18 +253,10 @@ class NativePlayer extends PlatformPlayer {
         volume: state.volume,
         rate: state.rate,
         pitch: state.pitch,
-        playlistMode: state.playlistMode,
-        shuffle: isShuffleEnabled,
         audioDevice: state.audioDevice,
         audioDevices: state.audioDevices,
       );
       if (notify) {
-        if (!open) {
-          // Do not emit PlayerStream.playlist if invoked from [open].
-          if (!playlistController.isClosed) {
-            playlistController.add(Playlist([]));
-          }
-        }
         if (!playingController.isClosed) {
           playingController.add(false);
         }
@@ -309,9 +287,6 @@ class NativePlayer extends PlatformPlayer {
         // if (!playlistModeController.isClosed) {
         //   playlistModeController.add(PlaylistMode.none);
         // }
-        if (!shuffleController.isClosed) {
-          shuffleController.add(isShuffleEnabled);
-        }
         // if (!audioParamsController.isClosed) {
         //   audioParamsController.add(const AudioParams());
         // }
@@ -327,12 +302,6 @@ class NativePlayer extends PlatformPlayer {
         // if (!audioDevicesController.isClosed) {
         //   audioDevicesController.add([AudioDevice.auto()]);
         // }
-        if (!trackController.isClosed) {
-          trackController.add(Track());
-        }
-        if (!tracksController.isClosed) {
-          tracksController.add(Tracks());
-        }
         if (!widthController.isClosed) {
           widthController.add(null);
         }
@@ -452,252 +421,6 @@ class NativePlayer extends PlatformPlayer {
     }
   }
 
-  /// Appends a [Media] to the [Player]'s playlist.
-  @override
-  Future<void> add(Media media, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      // External List<Media>:
-      // ---------------------------------------------
-      // Force a new List<T> object.
-      current = [...current, media];
-      final playlist = state.playlist.copyWith(medias: current);
-      state = state.copyWith(playlist: playlist);
-      if (!playlistController.isClosed) {
-        playlistController.add(playlist);
-      }
-      // ---------------------------------------------
-
-      await _command(['loadfile', media.uri, 'append']);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Removes the [Media] at specified index from the [Player]'s playlist.
-  @override
-  Future<void> remove(int index, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      int currentIndex = state.playlist.index;
-
-      // If we remove the last item in the playlist while playlist mode is none or single, then playback will stop.
-      // In this situation, the playlist doesn't seem to be updated, so we manually update it.
-      if (currentIndex == index &&
-          current.length - 1 == index &&
-          [
-            PlaylistMode.none,
-            PlaylistMode.single,
-          ].contains(state.playlistMode)) {
-        currentIndex = current.length - 2 < 0 ? 0 : current.length - 2;
-        current = current.sublist(0, current.length - 1);
-        state = state.copyWith(
-          // Allow playOrPause /w state.completed code-path to play the playlist again.
-          completed: true,
-          playing: false,
-          playlist: state.playlist.copyWith(
-            medias: current,
-            index: currentIndex,
-          ),
-        );
-        if (!playingController.isClosed) {
-          playingController.add(false);
-        }
-        if (!completedController.isClosed) {
-          completedController.add(true);
-        }
-        if (!playlistController.isClosed) {
-          playlistController.add(state.playlist);
-        }
-      }
-      // If we remove the last item in the playlist while playlist mode is loop, jump to the index 0.
-      else if (state.playlist.index == index &&
-          current.length - 1 == index &&
-          state.playlistMode == PlaylistMode.loop) {
-        currentIndex = 0;
-        current = current.sublist(0, current.length - 1);
-        state = state.copyWith(
-          // Allow playOrPause /w state.completed code-path to play the playlist again.
-          completed: true,
-          playlist: state.playlist.copyWith(
-            medias: current,
-            index: 0,
-          ),
-        );
-        if (!completedController.isClosed) {
-          completedController.add(true);
-        }
-        if (!playlistController.isClosed) {
-          playlistController.add(state.playlist);
-        }
-      }
-
-      // Default
-      else {
-        current = [...current]; // Force a new List<T> object.
-        current.removeAt(index);
-
-        // If the current index is greater than the removed index, then the current index should be reduced by 1.
-        // If the current index is equal or less than the removed index, then the current index should not be changed.
-        if (state.playlist.index > index) {
-          currentIndex--;
-        }
-
-        state = state.copyWith(
-          playlist: state.playlist.copyWith(
-            medias: current,
-            index: currentIndex,
-          ),
-        );
-        if (!playlistController.isClosed) {
-          playlistController.add(state.playlist);
-        }
-      }
-
-      await _command(['playlist-remove', index.toString()]);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Jumps to next [Media] in the [Player]'s playlist.
-  @override
-  Future<void> next({bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      // Do nothing if currently present at the first or last index & playlist mode is [PlaylistMode.none] or [PlaylistMode.single].
-      if ([
-            PlaylistMode.none,
-            PlaylistMode.single,
-          ].contains(state.playlistMode) &&
-          state.playlist.index == state.playlist.medias.length - 1) {
-        return;
-      }
-
-      await play(synchronized: false);
-      await _command(['playlist-next']);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Jumps to previous [Media] in the [Player]'s playlist.
-  @override
-  Future<void> previous({bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      // Do nothing if currently present at the first or last index & playlist mode is [PlaylistMode.none] or [PlaylistMode.single].
-      if ([
-            PlaylistMode.none,
-            PlaylistMode.single,
-          ].contains(state.playlistMode) &&
-          state.playlist.index == 0) {
-        return;
-      }
-
-      await play(synchronized: false);
-      await _command(['playlist-prev']);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Jumps to specified [Media]'s index in the [Player]'s playlist.
-  @override
-  Future<void> jump(int index, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      await play(synchronized: false);
-      await _setPropertyInt64('playlist-pos', index);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Moves the playlist [Media] at [from], so that it takes the place of the [Media] [to].
-  @override
-  Future<void> move(int from, int to, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      // External List<Media>:
-      // ---------------------------------------------
-      final map = SplayTreeMap<double, Media>.from(
-        current.asMap().map((key, value) => MapEntry(key * 1.0, value)),
-      );
-      final item = map.remove(from * 1.0);
-      if (item != null) {
-        map[to - 0.5] = item;
-      }
-      final values = map.values.toList();
-      current = values;
-      final playlist = state.playlist.copyWith(medias: current);
-      state = state.copyWith(playlist: playlist);
-      if (!playlistController.isClosed) {
-        playlistController.add(playlist);
-      }
-
-      // ---------------------------------------------
-
-      await _command(['playlist-move', from.toString(), to.toString()]);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
   /// Seeks the currently playing [Media] in the [Player] by specified [Duration].
   @override
   Future<void> seek(Duration duration, {bool synchronized = true}) {
@@ -720,51 +443,6 @@ class NativePlayer extends PlatformPlayer {
       state = state.copyWith(completed: false);
       if (!completedController.isClosed) {
         completedController.add(false);
-      }
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Sets playlist mode.
-  @override
-  Future<void> setPlaylistMode(PlaylistMode playlistMode,
-      {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      switch (playlistMode) {
-        case PlaylistMode.none:
-          {
-            await _setPropertyString('loop-file', 'no');
-            await _setPropertyString('loop-playlist', 'no');
-            break;
-          }
-        case PlaylistMode.single:
-          {
-            await _setPropertyString('loop-file', 'yes');
-            await _setPropertyString('loop-playlist', 'no');
-            break;
-          }
-        case PlaylistMode.loop:
-          {
-            await _setPropertyString('loop-file', 'no');
-            await _setPropertyString('loop-playlist', 'yes');
-            break;
-          }
-      }
-
-      state = state.copyWith(playlistMode: playlistMode);
-      if (!playlistModeController.isClosed) {
-        playlistModeController.add(playlistMode);
       }
     }
 
@@ -891,60 +569,6 @@ class NativePlayer extends PlatformPlayer {
     }
   }
 
-  /// Enables or disables shuffle for [Player]. Default is `false`.
-  @override
-  Future<void> setShuffle(bool shuffle, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      if (shuffle == isShuffleEnabled) {
-        return;
-      }
-      isShuffleEnabled = shuffle;
-      isPlaylistStateChangeAllowed = false;
-
-      await _command(
-        [
-          shuffle ? 'playlist-shuffle' : 'playlist-unshuffle',
-        ],
-      );
-
-      final getPlaylistResult = await compute(
-        _getPlaylist,
-        _GetPlaylistData(
-          ctx.address,
-          NativeLibrary.path,
-        ),
-      );
-      final index = getPlaylistResult.index;
-      final medias = getPlaylistResult.playlist.map(Media.new).toList();
-      final playlist = Playlist(medias, index: index);
-      state = state.copyWith(playlist: playlist, shuffle: isShuffleEnabled);
-      if (!playlistController.isClosed) {
-        playlistController.add(playlist);
-      }
-      if (!shuffleController.isClosed) {
-        shuffleController.add(isShuffleEnabled);
-      }
-
-      current = medias;
-
-      Future.delayed(const Duration(seconds: 5), () {
-        isPlaylistStateChangeAllowed = true;
-      });
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
   /// Sets the current [AudioDevice] for audio output.
   ///
   /// * Currently selected [AudioDevice] can be accessed using [state.audioDevice] or [stream.audioDevice].
@@ -960,186 +584,6 @@ class NativePlayer extends PlatformPlayer {
       await waitForVideoControllerInitializationIfAttached;
 
       await _setPropertyString('audio-device', audioDevice.name);
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Sets the current [VideoTrack] for video output.
-  ///
-  /// * Currently selected [VideoTrack] can be accessed using [state.track.video] or [stream.track.video].
-  /// * The list of currently available [VideoTrack]s can be obtained accessed using [state.tracks.video] or [stream.tracks.video].
-  @override
-  Future<void> setVideoTrack(VideoTrack track, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      await _setPropertyString('vid', track.id);
-      state = state.copyWith(
-        track: state.track.copyWith(
-          video: track,
-        ),
-      );
-      if (!trackController.isClosed) {
-        trackController.add(state.track);
-      }
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Sets the current [AudioTrack] for audio output.
-  ///
-  /// * Currently selected [AudioTrack] can be accessed using [state.track.audio] or [stream.track.audio].
-  /// * The list of currently available [AudioTrack]s can be obtained accessed using [state.tracks.audio] or [stream.tracks.audio].
-  /// * External audio track can be loaded using [AudioTrack.uri] constructor.
-  ///
-  /// ```dart
-  /// player.setAudioTrack(
-  ///   AudioTrack.uri(
-  ///     'https://www.iandevlin.com/html5test/webvtt/v/upc-tobymanley.mp4',
-  ///     title: 'English',
-  ///     language: 'en',
-  ///   ),
-  /// );
-  /// ```
-  ///
-  @override
-  Future<void> setAudioTrack(AudioTrack track, {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      if (track.uri) {
-        await _command(
-          [
-            'audio-add',
-            track.id,
-            'select',
-            track.title ?? 'external',
-            track.language ?? 'auto',
-          ],
-        );
-        state = state.copyWith(
-          track: state.track.copyWith(
-            audio: track,
-          ),
-        );
-        if (!trackController.isClosed) {
-          trackController.add(state.track);
-        }
-      } else {
-        await _setPropertyString('aid', track.id);
-        state = state.copyWith(
-          track: state.track.copyWith(
-            audio: track,
-          ),
-        );
-        if (!trackController.isClosed) {
-          trackController.add(state.track);
-        }
-      }
-    }
-
-    if (synchronized) {
-      return lock.synchronized(function);
-    } else {
-      return function();
-    }
-  }
-
-  /// Sets the current [SubtitleTrack] for subtitle output.
-  ///
-  /// * Currently selected [SubtitleTrack] can be accessed using [state.track.subtitle] or [stream.track.subtitle].
-  /// * The list of currently available [SubtitleTrack]s can be obtained accessed using [state.tracks.subtitle] or [stream.tracks.subtitle].
-  /// * External subtitle track can be loaded using [SubtitleTrack.uri] or [SubtitleTrack.data] constructor.
-  ///
-  /// ```dart
-  /// player.setSubtitleTrack(
-  ///   SubtitleTrack.uri(
-  ///     'https://www.iandevlin.com/html5test/webvtt/upc-video-subtitles-en.vtt',
-  ///     title: 'English',
-  ///     language: 'en',
-  ///   ),
-  /// );
-  /// ```
-  ///
-  @override
-  Future<void> setSubtitleTrack(SubtitleTrack track,
-      {bool synchronized = true}) {
-    Future<void> function() async {
-      if (disposed) {
-        throw AssertionError('[Player] has been disposed');
-      }
-      await waitForPlayerInitialization;
-      await waitForVideoControllerInitializationIfAttached;
-
-      // Reset existing Player.state.subtitle & Player.stream.subtitle.
-      state = state.copyWith(
-        subtitle: const PlayerState().subtitle,
-      );
-      if (!subtitleController.isClosed) {
-        subtitleController.add(state.subtitle);
-      }
-
-      if (track.uri || track.data) {
-        final String uri;
-        if (track.uri) {
-          uri = track.id;
-        } else if (track.data) {
-          // Save the subtitle data to a temporary [File].
-          final temp = await TempFile.create();
-          await temp.write_(track.id);
-          // Delete the temporary [File] upon [dispose].
-          release.add(temp.delete_);
-          uri = temp.uri.toString();
-        } else {
-          return;
-        }
-
-        await _command(
-          [
-            'sub-add',
-            uri,
-            'select',
-            track.title ?? 'external',
-            track.language ?? 'auto',
-          ],
-        );
-        state = state.copyWith(
-          track: state.track.copyWith(
-            subtitle: track,
-          ),
-        );
-        if (!trackController.isClosed) {
-          trackController.add(state.track);
-        }
-      } else {
-        await _setPropertyString('sid', track.id);
-        state = state.copyWith(
-          track: state.track.copyWith(
-            subtitle: track,
-          ),
-        );
-        if (!trackController.isClosed) {
-          trackController.add(state.track);
-        }
-      }
     }
 
     if (synchronized) {
@@ -1577,9 +1021,8 @@ class NativePlayer extends PlatformPlayer {
         if (!durationController.isClosed) {
           durationController.add(duration);
         }
-        if (state.playlist.index >= 0 &&
-            state.playlist.index < state.playlist.medias.length) {
-          final uri = state.playlist.medias[state.playlist.index].uri;
+        final uri = current.firstOrNull?.uri;
+        if (null != uri) {
           if (FallbackBitrateHandler.supported(uri)) {
             if (!audioBitrateCache.containsKey(Media.normalizeURI(uri))) {
               audioBitrateCache[uri] =
@@ -1595,23 +1038,6 @@ class NativePlayer extends PlatformPlayer {
                 audioBitrateController.add(bitrate);
               }
             }
-          }
-        }
-      }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'playlist-playing-pos' &&
-          prop.ref.format == generated.mpv_format.MPV_FORMAT_INT64 &&
-          prop.ref.data != nullptr &&
-          isPlaylistStateChangeAllowed) {
-        isPlaylistStateChangeAllowed = true;
-
-        final index = prop.ref.data.cast<Int64>().value;
-        final medias = current;
-
-        if (index >= 0) {
-          final playlist = Playlist(medias, index: index);
-          state = state.copyWith(playlist: playlist);
-          if (!playlistController.isClosed) {
-            playlistController.add(playlist);
           }
         }
       }
@@ -1681,10 +1107,9 @@ class NativePlayer extends PlatformPlayer {
       }
       if (prop.ref.name.cast<Utf8>().toDartString() == 'audio-bitrate' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
-        if (state.playlist.index < state.playlist.medias.length &&
-            state.playlist.index >= 0) {
+        final uri = current.firstOrNull?.uri;
+        if (null != uri) {
           final data = prop.ref.data.cast<Double>().value;
-          final uri = state.playlist.medias[state.playlist.index].uri;
           if (!FallbackBitrateHandler.supported(uri)) {
             if (!audioBitrateCache.containsKey(Media.normalizeURI(uri))) {
               audioBitrateCache[Media.normalizeURI(uri)] = data;
@@ -1700,203 +1125,6 @@ class NativePlayer extends PlatformPlayer {
           if (!audioBitrateController.isClosed) {
             audioBitrateController.add(null);
             state = state.copyWith(audioBitrate: null);
-          }
-        }
-      }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'track-list' &&
-          prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
-        final value = prop.ref.data.cast<generated.mpv_node>();
-        if (value.ref.format == generated.mpv_format.MPV_FORMAT_NODE_ARRAY) {
-          final video = [VideoTrack.auto(), VideoTrack.no()];
-          final audio = [AudioTrack.auto(), AudioTrack.no()];
-          final subtitle = [SubtitleTrack.auto(), SubtitleTrack.no()];
-
-          final tracks = value.ref.u.list.ref;
-
-          for (int i = 0; i < tracks.num; i++) {
-            if (tracks.values[i].format ==
-                generated.mpv_format.MPV_FORMAT_NODE_MAP) {
-              final map = tracks.values[i].u.list.ref;
-              String id = '';
-              String type = '';
-              String? title;
-              String? language;
-              bool? image;
-              bool? albumart;
-              String? codec;
-              String? decoder;
-              int? w;
-              int? h;
-              int? channelscount;
-              String? channels;
-              int? samplerate;
-              double? fps;
-              int? bitrate;
-              int? rotate;
-              double? par;
-              int? audiochannels;
-              for (int j = 0; j < map.num; j++) {
-                final property = map.keys[j].cast<Utf8>().toDartString();
-                if (map.values[j].format ==
-                    generated.mpv_format.MPV_FORMAT_INT64) {
-                  switch (property) {
-                    case 'id':
-                      id = map.values[j].u.int64.toString();
-                      break;
-                    case 'demux-w':
-                      w = map.values[j].u.int64;
-                      break;
-                    case 'demux-h':
-                      h = map.values[j].u.int64;
-                      break;
-                    case 'demux-channel-count':
-                      channelscount = map.values[j].u.int64;
-                      break;
-                    case 'demux-samplerate':
-                      samplerate = map.values[j].u.int64;
-                      break;
-                    case 'demux-bitrate':
-                      bitrate = map.values[j].u.int64;
-                      break;
-                    case 'demux-rotate':
-                      rotate = map.values[j].u.int64;
-                      break;
-                    case 'audio-channels':
-                      audiochannels = map.values[j].u.int64;
-                      break;
-                  }
-                }
-                if (map.values[j].format ==
-                    generated.mpv_format.MPV_FORMAT_FLAG) {
-                  switch (property) {
-                    case 'image':
-                      image = map.values[j].u.flag > 0;
-                      break;
-                    case 'albumart':
-                      albumart = map.values[j].u.flag > 0;
-                      break;
-                  }
-                }
-                if (map.values[j].format ==
-                    generated.mpv_format.MPV_FORMAT_DOUBLE) {
-                  switch (property) {
-                    case 'demux-fps':
-                      fps = map.values[j].u.double_;
-                      break;
-                    case 'demux-par':
-                      par = map.values[j].u.double_;
-                      break;
-                  }
-                }
-                if (map.values[j].format ==
-                    generated.mpv_format.MPV_FORMAT_STRING) {
-                  final value =
-                      map.values[j].u.string.cast<Utf8>().toDartString();
-                  switch (property) {
-                    case 'type':
-                      type = value;
-                      break;
-                    case 'title':
-                      title = value;
-                      break;
-                    case 'lang':
-                      language = value;
-                      break;
-                    case 'codec':
-                      codec = value;
-                      break;
-                    case 'decoder-desc':
-                      decoder = value;
-                      break;
-                    case 'demux-channels':
-                      channels = value;
-                      break;
-                  }
-                }
-              }
-              switch (type) {
-                case 'video':
-                  video.add(
-                    VideoTrack(
-                      id,
-                      title,
-                      language,
-                      image: image,
-                      albumart: albumart,
-                      codec: codec,
-                      decoder: decoder,
-                      w: w,
-                      h: h,
-                      channelscount: channelscount,
-                      channels: channels,
-                      samplerate: samplerate,
-                      fps: fps,
-                      bitrate: bitrate,
-                      rotate: rotate,
-                      par: par,
-                      audiochannels: audiochannels,
-                    ),
-                  );
-                  break;
-                case 'audio':
-                  audio.add(
-                    AudioTrack(
-                      id,
-                      title,
-                      language,
-                      image: image,
-                      albumart: albumart,
-                      codec: codec,
-                      decoder: decoder,
-                      w: w,
-                      h: h,
-                      channelscount: channelscount,
-                      channels: channels,
-                      samplerate: samplerate,
-                      fps: fps,
-                      bitrate: bitrate,
-                      rotate: rotate,
-                      par: par,
-                      audiochannels: audiochannels,
-                    ),
-                  );
-                  break;
-                case 'sub':
-                  subtitle.add(
-                    SubtitleTrack(
-                      id,
-                      title,
-                      language,
-                      image: image,
-                      albumart: albumart,
-                      codec: codec,
-                      decoder: decoder,
-                      w: w,
-                      h: h,
-                      channelscount: channelscount,
-                      channels: channels,
-                      samplerate: samplerate,
-                      fps: fps,
-                      bitrate: bitrate,
-                      rotate: rotate,
-                      par: par,
-                      audiochannels: audiochannels,
-                    ),
-                  );
-                  break;
-              }
-            }
-          }
-
-          state = state.copyWith(
-            tracks: Tracks(
-              video: video,
-              audio: audio,
-              subtitle: subtitle,
-            ),
-          );
-          if (!tracksController.isClosed) {
-            tracksController.add(state.tracks);
           }
         }
       }
@@ -1949,19 +1177,8 @@ class NativePlayer extends PlatformPlayer {
             }
           }
 
-          state = state.copyWith(
-            buffering: false,
-            tracks: Tracks(),
-            track: Track(),
-          );
           if (!bufferingController.isClosed) {
             bufferingController.add(false);
-          }
-          if (!tracksController.isClosed) {
-            tracksController.add(Tracks());
-          }
-          if (!trackController.isClosed) {
-            trackController.add(Track());
           }
         }
       }
@@ -2451,7 +1668,6 @@ class NativePlayer extends PlatformPlayer {
         'pause': generated.mpv_format.MPV_FORMAT_FLAG,
         'time-pos': generated.mpv_format.MPV_FORMAT_DOUBLE,
         'duration': generated.mpv_format.MPV_FORMAT_DOUBLE,
-        'playlist-playing-pos': generated.mpv_format.MPV_FORMAT_INT64,
         'volume': generated.mpv_format.MPV_FORMAT_DOUBLE,
         'speed': generated.mpv_format.MPV_FORMAT_DOUBLE,
         'core-idle': generated.mpv_format.MPV_FORMAT_FLAG,
@@ -2463,7 +1679,6 @@ class NativePlayer extends PlatformPlayer {
         'audio-device': generated.mpv_format.MPV_FORMAT_NODE,
         'audio-device-list': generated.mpv_format.MPV_FORMAT_NODE,
         'video-out-params': generated.mpv_format.MPV_FORMAT_NODE,
-        'track-list': generated.mpv_format.MPV_FORMAT_NODE,
         'eof-reached': generated.mpv_format.MPV_FORMAT_FLAG,
         'idle-active': generated.mpv_format.MPV_FORMAT_FLAG,
         'sub-text': generated.mpv_format.MPV_FORMAT_NODE,
@@ -2641,9 +1856,6 @@ class NativePlayer extends PlatformPlayer {
   /// Whether the [Player] has been disposed. This is used to prevent accessing dangling [ctx] after [dispose].
   bool disposed = false;
 
-  /// A flag to keep track of [setShuffle] calls.
-  bool isShuffleEnabled = false;
-
   /// A flag to prevent changes to [state.playing] due to `loadfile` commands in [open].
   ///
   /// By default, `MPV_EVENT_START_FILE` is fired when a new media source is loaded.
@@ -2660,11 +1872,6 @@ class NativePlayer extends PlatformPlayer {
   ///
   /// This is used to prevent [state.buffering] being set to `true` when [pause] or [playOrPause] is called.
   bool isBufferingStateChangeAllowed = true;
-
-  /// A flag to prevent changes to the [state.playlist] due to `playlist-shuffle` or `playlist-unshuffle` in [setShuffle].
-  ///
-  /// This is used to prevent a duplicate update by the `playlist-playing-pos` event.
-  bool isPlaylistStateChangeAllowed = true;
 
   /// Current loaded [Media] queue.
   List<Media> current = <Media>[];
@@ -2826,78 +2033,6 @@ Uint8List? _screenshot(_ScreenshotData data) {
   calloc.free(result.cast());
 
   return image;
-}
-
-class _GetPlaylistData {
-  final int ctx;
-  final String lib;
-
-  const _GetPlaylistData(
-    this.ctx,
-    this.lib,
-  );
-}
-
-class _GetPlaylistResult {
-  final int index;
-  final List<String> playlist;
-
-  const _GetPlaylistResult(
-    this.index,
-    this.playlist,
-  );
-}
-
-_GetPlaylistResult _getPlaylist(_GetPlaylistData data) {
-  // ---------
-  final mpv = generated.MPV(DynamicLibrary.open(data.lib));
-  final ctx = Pointer<generated.mpv_handle>.fromAddress(data.ctx);
-  // ---------
-
-  final name = 'playlist'.toNativeUtf8();
-  final value = calloc<generated.mpv_node>();
-
-  mpv.mpv_get_property(
-    ctx,
-    name.cast(),
-    generated.mpv_format.MPV_FORMAT_NODE,
-    value.cast(),
-  );
-
-  int index = -1;
-  List<String> playlist = [];
-
-  final list = value.ref.u.list.ref;
-
-  for (int i = 0; i < list.num; i++) {
-    if (list.values[i].format == generated.mpv_format.MPV_FORMAT_NODE_MAP) {
-      final map = list.values[i].u.list.ref;
-      for (int j = 0; j < map.num; j++) {
-        final property = map.keys[j].cast<Utf8>().toDartString();
-        if (map.values[j].format == generated.mpv_format.MPV_FORMAT_FLAG) {
-          if (property == 'playing') {
-            final value = map.values[j].u.flag;
-            if (value == 1) {
-              index = i;
-            }
-          }
-        }
-        if (map.values[j].format == generated.mpv_format.MPV_FORMAT_STRING) {
-          if (property == 'filename') {
-            final value = map.values[j].u.string.cast<Utf8>().toDartString();
-            playlist.add(value);
-          }
-        }
-      }
-    }
-  }
-
-  mpv.mpv_free_node_contents(value.cast());
-
-  calloc.free(name.cast());
-  calloc.free(value.cast());
-
-  return _GetPlaylistResult(index, playlist);
 }
 
 // --------------------------------------------------

@@ -9,16 +9,13 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
 
-import 'package:media_kit/src/models/track.dart';
 import 'package:media_kit/src/models/playable.dart';
-import 'package:media_kit/src/models/playlist.dart';
 import 'package:media_kit/src/models/player_log.dart';
 import 'package:media_kit/src/models/media/media.dart';
 import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
 import 'package:media_kit/src/models/video_params.dart';
 import 'package:media_kit/src/models/player_state.dart';
-import 'package:media_kit/src/models/playlist_mode.dart';
 import 'package:media_kit/src/models/player_stream.dart';
 
 /// {@template platform_player}
@@ -43,9 +40,6 @@ abstract class PlatformPlayer {
 
   /// Current state of the player available as listenable [Stream]s.
   late PlayerStream stream = PlayerStream(
-    playlistController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
     playingController.stream.distinct(
       (previous, current) => previous == current,
     ),
@@ -76,12 +70,6 @@ abstract class PlatformPlayer {
     bufferController.stream.distinct(
       (previous, current) => previous == current,
     ),
-    playlistModeController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    shuffleController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
     /* AUDIO-PARAMS STREAM SHOULD NOT BE DISTINCT */
     audioParamsController.stream,
     /* VIDEO-PARAMS STREAM SHOULD NOT BE DISTINCT */
@@ -94,12 +82,6 @@ abstract class PlatformPlayer {
     ),
     audioDevicesController.stream.distinct(
       (previous, current) => ListEquality().equals(previous, current),
-    ),
-    trackController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    tracksController.stream.distinct(
-      (previous, current) => previous == current,
     ),
     widthController.stream.distinct(
       (previous, current) => previous == current,
@@ -121,7 +103,6 @@ abstract class PlatformPlayer {
   Future<void> dispose() async {
     await Future.wait(
       [
-        playlistController.close(),
         playingController.close(),
         completedController.close(),
         positionController.close(),
@@ -132,15 +113,11 @@ abstract class PlatformPlayer {
         bufferingController.close(),
         bufferingPercentageController.close(),
         bufferController.close(),
-        playlistModeController.close(),
-        shuffleController.close(),
         audioParamsController.close(),
         videoParamsController.close(),
         audioBitrateController.close(),
         audioDeviceController.close(),
         audioDevicesController.close(),
-        trackController.close(),
-        tracksController.close(),
         widthController.close(),
         heightController.close(),
         subtitleController.close(),
@@ -233,12 +210,6 @@ abstract class PlatformPlayer {
     );
   }
 
-  Future<void> setPlaylistMode(PlaylistMode playlistMode) {
-    throw UnimplementedError(
-      '[PlatformPlayer.setPlaylistMode] is not implemented',
-    );
-  }
-
   Future<void> setVolume(double volume) {
     throw UnimplementedError(
       '[PlatformPlayer.volume] is not implemented',
@@ -269,24 +240,6 @@ abstract class PlatformPlayer {
     );
   }
 
-  Future<void> setVideoTrack(VideoTrack track) {
-    throw UnimplementedError(
-      '[PlatformPlayer.setVideoTrack] is not implemented',
-    );
-  }
-
-  Future<void> setAudioTrack(AudioTrack track) {
-    throw UnimplementedError(
-      '[PlatformPlayer.setAudioTrack] is not implemented',
-    );
-  }
-
-  Future<void> setSubtitleTrack(SubtitleTrack track) {
-    throw UnimplementedError(
-      '[PlatformPlayer.setSubtitleTrack] is not implemented',
-    );
-  }
-
   Future<Uint8List?> screenshot(
       {String? format = 'image/jpeg',
       bool includeLibassSubtitles = false}) async {
@@ -300,10 +253,6 @@ abstract class PlatformPlayer {
       '[PlatformPlayer.handle] is not implemented',
     );
   }
-
-  @protected
-  final StreamController<Playlist> playlistController =
-      StreamController<Playlist>.broadcast();
 
   @protected
   final StreamController<bool> playingController =
@@ -344,14 +293,6 @@ abstract class PlatformPlayer {
       StreamController<Duration>.broadcast();
 
   @protected
-  final StreamController<PlaylistMode> playlistModeController =
-      StreamController<PlaylistMode>.broadcast();
-
-  @protected
-  final StreamController<bool> shuffleController =
-      StreamController<bool>.broadcast();
-
-  @protected
   final StreamController<PlayerLog> logController =
       StreamController<PlayerLog>.broadcast();
 
@@ -378,14 +319,6 @@ abstract class PlatformPlayer {
   @protected
   final StreamController<List<AudioDevice>> audioDevicesController =
       StreamController<List<AudioDevice>>.broadcast();
-
-  @protected
-  final StreamController<Track> trackController =
-      StreamController<Track>.broadcast();
-
-  @protected
-  final StreamController<Tracks> tracksController =
-      StreamController<Tracks>.broadcast();
 
   @protected
   final StreamController<int?> widthController =

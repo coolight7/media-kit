@@ -127,7 +127,7 @@ class Video extends StatefulWidget {
     this.alignment = Alignment.center,
     this.aspectRatio,
     this.filterQuality = FilterQuality.low,
-    this.controls = media_kit_video_controls.AdaptiveVideoControls,
+    this.controls = media_kit_video_controls.NoVideoControls,
     this.wakelock = true,
     this.pauseUponEnteringBackgroundMode = true,
     this.resumeUponEnteringForegroundMode = false,
@@ -135,7 +135,7 @@ class Video extends StatefulWidget {
     this.onEnterFullscreen = defaultEnterNativeFullscreen,
     this.onExitFullscreen = defaultExitNativeFullscreen,
     this.focusNode,
-  }) : super(key: key);
+  });
 
   @override
   State<Video> createState() => VideoState();
@@ -155,20 +155,14 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
   bool _pauseDueToPauseUponEnteringBackgroundMode = false;
   // Public API:
   bool isFullscreen() {
-    return media_kit_video_controls.isFullscreen(_contextNotifier.value!);
+    return false;
   }
 
-  Future<void> enterFullscreen() {
-    return media_kit_video_controls.enterFullscreen(_contextNotifier.value!);
-  }
+  Future<void> enterFullscreen() async {}
 
-  Future<void> exitFullscreen() {
-    return media_kit_video_controls.exitFullscreen(_contextNotifier.value!);
-  }
+  Future<void> exitFullscreen() async {}
 
-  Future<void> toggleFullscreen() {
-    return media_kit_video_controls.toggleFullscreen(_contextNotifier.value!);
-  }
+  Future<void> toggleFullscreen() async {}
 
   void setSubtitleViewPadding(
     EdgeInsets padding, {
