@@ -4,12 +4,9 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 
-import 'package:media_kit/src/models/track.dart';
-import 'package:media_kit/src/models/playlist.dart';
 import 'package:media_kit/src/models/player_log.dart';
 import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
-import 'package:media_kit/src/models/playlist_mode.dart';
 import 'package:media_kit/src/models/video_params.dart';
 
 /// {@template player_stream}
@@ -21,9 +18,6 @@ import 'package:media_kit/src/models/video_params.dart';
 ///
 /// {@endtemplate}
 class PlayerStream {
-  /// Currently opened [Media]s.
-  final Stream<Playlist> playlist;
-
   /// Whether playing or not.
   final Stream<bool> playing;
 
@@ -55,12 +49,6 @@ class PlayerStream {
   /// Current buffering percentage
   final Stream<double> bufferingPercentage;
 
-  /// Current playlist mode.
-  final Stream<PlaylistMode> playlistMode;
-
-  /// Whether playlist is shuffled or not.
-  final Stream<bool> shuffle;
-
   /// Audio parameters of the currently playing [Media].
   /// e.g. sample rate, channels, etc.
   final Stream<AudioParams> audioParams;
@@ -77,12 +65,6 @@ class PlayerStream {
 
   /// Currently available [AudioDevice]s.
   final Stream<List<AudioDevice>> audioDevices;
-
-  /// Currently selected video, audio and subtitle track.
-  final Stream<Track> track;
-
-  /// Currently available video, audio and subtitle tracks.
-  final Stream<Tracks> tracks;
 
   /// Currently playing video's width.
   final Stream<int?> width;
@@ -101,7 +83,6 @@ class PlayerStream {
 
   /// {@macro player_stream}
   const PlayerStream(
-    this.playlist,
     this.playing,
     this.completed,
     this.position,
@@ -112,15 +93,11 @@ class PlayerStream {
     this.buffering,
     this.bufferingPercentage,
     this.buffer,
-    this.playlistMode,
-    this.shuffle,
     this.audioParams,
     this.videoParams,
     this.audioBitrate,
     this.audioDevice,
     this.audioDevices,
-    this.track,
-    this.tracks,
     this.width,
     this.height,
     this.subtitle,

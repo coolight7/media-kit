@@ -100,7 +100,7 @@ class VideoStateInheritedWidgetContextNotifierState
   Widget build(BuildContext context) {
     // Only update the [BuildContext] associated with this [Video] widget if it is not already set or if the [Video] widget is in fullscreen mode.
     // This is being done because the [Video] widget is rebuilt when it enters/exits fullscreen mode... & things don't work properly if we let [BuildContext] update in every rebuild.
-    if (widget.contextNotifier.value == null || isFullscreen(context)) {
+    if (widget.contextNotifier.value == null) {
       widget.contextNotifier.value = context;
       fallback[widget.state] ??= context;
     }
