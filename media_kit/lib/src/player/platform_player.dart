@@ -228,12 +228,6 @@ abstract class PlatformPlayer {
     );
   }
 
-  Future<void> setShuffle(bool shuffle) {
-    throw UnimplementedError(
-      '[PlatformPlayer.shuffle] is not implemented',
-    );
-  }
-
   Future<void> setAudioDevice(AudioDevice audioDevice) {
     throw UnimplementedError(
       '[PlatformPlayer.setAudioDevice] is not implemented',

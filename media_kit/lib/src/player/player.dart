@@ -202,12 +202,6 @@ class Player {
     return platform?.setPitch(pitch);
   }
 
-  /// Enables or disables shuffle for [Player].
-  /// Default is `false`.
-  Future<void> setShuffle(bool shuffle) async {
-    return platform?.setShuffle(shuffle);
-  }
-
   /// Sets the current [AudioDevice] for audio output.
   ///
   /// * Currently selected [AudioDevice] can be accessed using [state.audioDevice] or [stream.audioDevice].
