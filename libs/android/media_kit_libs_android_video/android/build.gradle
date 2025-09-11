@@ -57,10 +57,10 @@ task downloadDependencies(type: Exec) {
     
     // Download all *.jar dependencies & verify their MD5 checksums.
 
-    def destDefaultARM64 = file("../outlibs/encoders-gpl-arm64-v8a.jar")
-    def destDefaultARMEABI = file("../outlibs/encoders-gpl-armeabi-v7a.jar")
-    def destDefaultX86_64 = file("../outlibs/encoders-gpl-x86_64.jar")
-    def destDefaultX86 = file("../outlibs/encoders-gpl-x86.jar")
+    def destDefaultARM64 = file("../outlibs/o-full-arm64-v8a.jar")
+    def destDefaultARMEABI = file("../outlibs/o-full-armeabi-v7a.jar")
+    def destDefaultX86_64 = file("../outlibs/o-full-x86_64.jar")
+    def destDefaultX86 = file("../outlibs/o-full-x86.jar")
 
     copy {
         from destDefaultARM64

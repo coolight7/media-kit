@@ -33,9 +33,10 @@ abstract class AndroidHelper {
           );
         } catch (_) {}
         try {
-          libavcodec = DynamicLibrary.open(
-            'libavcodec.so',
-          );
+          // 编译到libmpv.so一起，阻止寻找
+          // libavcodec = DynamicLibrary.open(
+          //   'libavcodec.so',
+          // );
         } catch (_) {}
         try {
           libmediakitandroidhelper = DynamicLibrary.open(
