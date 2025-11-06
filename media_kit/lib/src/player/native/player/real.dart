@@ -368,7 +368,7 @@ class NativePlayer extends PlatformPlayer {
         playingController.add(false);
       }
 
-      isPlayingStateChangeAllowed = true;
+      isPlayingStateChangeAllowed = state.playing;
       isBufferingStateChangeAllowed = false;
       await _setPropertyFlag('pause', true);
     }
@@ -403,7 +403,7 @@ class NativePlayer extends PlatformPlayer {
         }
       }
 
-      isPlayingStateChangeAllowed = true;
+      isPlayingStateChangeAllowed = state.playing;
       isBufferingStateChangeAllowed = false;
 
       // This condition is specifically for the case when the internal playlist is ended (with [PlaylistLoopMode.none]), and we want to play the playlist again if play/pause is pressed.
@@ -1182,7 +1182,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'video-out-params' &&
+      if (prop.ref.name.cast<Utf8>().toDartString() == 'video-params' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final node = prop.ref.data.cast<generated.mpv_node>().ref;
         final data = <String, dynamic>{};
@@ -1678,7 +1678,7 @@ class NativePlayer extends PlatformPlayer {
         'audio-bitrate': generated.mpv_format.MPV_FORMAT_DOUBLE,
         'audio-device': generated.mpv_format.MPV_FORMAT_NODE,
         'audio-device-list': generated.mpv_format.MPV_FORMAT_NODE,
-        'video-out-params': generated.mpv_format.MPV_FORMAT_NODE,
+        'video-params': generated.mpv_format.MPV_FORMAT_NODE,
         'eof-reached': generated.mpv_format.MPV_FORMAT_FLAG,
         'idle-active': generated.mpv_format.MPV_FORMAT_FLAG,
         'sub-text': generated.mpv_format.MPV_FORMAT_NODE,
@@ -2019,7 +2019,7 @@ Uint8List? _screenshot(_ScreenshotData data) {
           }
         case null:
           {
-            image = bytes;
+            image = bytes.sublist(0);
             break;
           }
       }
