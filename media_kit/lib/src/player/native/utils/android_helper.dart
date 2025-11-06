@@ -24,19 +24,18 @@ abstract class AndroidHelper {
       if (Platform.isAndroid) {
         // Load the required shared libraries:
         // * libmpv.so
-        // * libavcodec.so
+        // * libmediaxx.so
         // * libmediakitandroidhelper.so.
-        DynamicLibrary? libmpv, libavcodec, libmediakitandroidhelper;
+        DynamicLibrary? libmpv, libmediaxx, libmediakitandroidhelper;
         try {
           libmpv = DynamicLibrary.open(
             'libmpv.so',
           );
         } catch (_) {}
         try {
-          // 编译到libmpv.so一起，阻止寻找
-          // libavcodec = DynamicLibrary.open(
-          //   'libavcodec.so',
-          // );
+          libmediaxx = DynamicLibrary.open(
+            'libmediaxx.so',
+          );
         } catch (_) {}
         try {
           libmediakitandroidhelper = DynamicLibrary.open(
@@ -51,7 +50,7 @@ abstract class AndroidHelper {
           );
         } catch (_) {}
         try {
-          _av_jni_set_java_vm = libavcodec
+          _av_jni_set_java_vm = libmediaxx
               ?.lookupFunction<av_jni_set_java_vmCXX, av_jni_set_java_vmDart>(
             'av_jni_set_java_vm',
           );
