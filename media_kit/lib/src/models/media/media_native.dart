@@ -149,19 +149,19 @@ class Media extends Playable {
       return AssetLoader.load(uri);
     }
     // content:// URI support for Android.
-    try {
-      if (Platform.isAndroid) {
-        if (Uri.parse(uri).isScheme('CONTENT')) {
-          final fd = AndroidContentUriProvider.openFileDescriptorSync(uri);
-          if (fd > 0) {
-            return 'fd://$fd';
-          }
-        }
-      }
-    } catch (exception, stacktrace) {
-      print(exception);
-      print(stacktrace);
-    }
+    // try {
+    //   if (Platform.isAndroid) {
+    //     if (Uri.parse(uri).isScheme('CONTENT')) {
+    //       final fd = AndroidContentUriProvider.openFileDescriptorSync(uri);
+    //       if (fd > 0) {
+    //         return 'fd://$fd';
+    //       }
+    //     }
+    //   }
+    // } catch (exception, stacktrace) {
+    //   print(exception);
+    //   print(stacktrace);
+    // }
     // Keep the resulting URI normalization same as used by libmpv internally.
     // [File] or network URIs.
     final parser = URIParser(uri);

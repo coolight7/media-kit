@@ -147,29 +147,16 @@ bool ANGLESurfaceManager::CreateD3DTexture() {
   if (d3d_11_device_ == nullptr) {
     // NOTE: Not enabling Feature Level 12. It crashes directly on Windows 7.
     const auto feature_levels = {
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
-        D3D_FEATURE_LEVEL_9_3,
+        D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_9_3,
     };
 
     IDXGIAdapter* adapter = nullptr;
     D3D_DRIVER_TYPE driver_type = D3D_DRIVER_TYPE_UNKNOWN;
 
     // NOTE: Automatically selecting adapter on Windows 10 RTM or greater.
-    if (Utils::IsWindows10RTMOrGreater()) {
-      adapter = NULL;
-      driver_type = D3D_DRIVER_TYPE_HARDWARE;
-    } else {
-      IDXGIFactory* dxgi = nullptr;
-      ::CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&dxgi);
-      // As far as my experience goes, this is the safest approach. Passing NULL
-      // (so-called default) seems to cause issues on Windows 7 or maybe some
-      // older graphics drivers. First adapter is the default.
-      // D3D_DRIVER_TYPE_UNKNOWN| must be passed with manual adapter selection.
-      dxgi->EnumAdapters(0, &adapter);
-      dxgi->Release();
-    }
+    adapter = NULL;
+    driver_type = D3D_DRIVER_TYPE_HARDWARE;
 
     auto hr = ::D3D11CreateDevice(
         adapter, driver_type, 0, 0, feature_levels.begin(),

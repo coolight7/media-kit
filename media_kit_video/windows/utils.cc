@@ -99,7 +99,8 @@ RTL_OSVERSIONINFOW Utils::GetWindowsVersion() {
 }
 
 bool Utils::IsWindows10RTMOrGreater() {
-  return GetWindowsVersion().dwBuildNumber >= 10240;
+  // return GetWindowsVersion().dwBuildNumber >= 10240;
+  return true;
 }
 
 bool Utils::fullscreen_ = false;
