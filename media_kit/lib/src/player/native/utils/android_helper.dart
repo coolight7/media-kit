@@ -44,7 +44,7 @@ abstract class AndroidHelper {
         } catch (_) {}
         // Look for the required symbols.
         try {
-          _mpv_lavc_set_java_vm = libmpv?.lookupFunction<
+          _mpv_lavc_set_java_vm = (libmpv ?? libmediaxx)?.lookupFunction<
               mpv_lavc_set_java_vmCXX, mpv_lavc_set_java_vmDart>(
             'mpv_lavc_set_java_vm',
           );
