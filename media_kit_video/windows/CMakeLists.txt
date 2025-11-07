@@ -55,13 +55,18 @@ if(MEDIA_KIT_LIBS_AVAILABLE)
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
   )
 
+  set(FILE_LIBMPV "${LIBMPV_SRC}/libmediaxx.dll.a")
+  if(NOT EXISTS ${FILE_LIBMPV} OR NOT ${USE_FULL_LIBMEDIAXX}) 
+    set(FILE_LIBMPV "${LIBMPV_SRC}/libmpv.dll.a")
+  endif()
+
   target_link_libraries(
     ${PLUGIN_NAME} PRIVATE
     flutter
     flutter_wrapper_plugin
 
     # Link to libmpv & ANGLE.
-    "${LIBMPV_SRC}/libmpv.dll.a"
+    "${FILE_LIBMPV}"
     "${ANGLE_SRC}/lib/libEGL.dll.lib"
     "${ANGLE_SRC}/lib/libGLESv2.dll.lib"
   )
