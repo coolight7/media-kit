@@ -7,6 +7,8 @@
 import 'dart:io';
 import 'dart:ffi';
 
+import 'package:media_kit/src/values.dart';
+
 /// {@template native_library}
 ///
 /// NativeLibrary
@@ -66,8 +68,8 @@ abstract class NativeLibrary {
         'Mpv.framework/Mpv',
       ],
       'android': [
-        'libmpv.so',
         'libmediaxx.so',
+        'libmpv.so',
       ],
     }[Platform.operatingSystem];
     if (names != null) {
@@ -78,7 +80,9 @@ abstract class NativeLibrary {
           _resolved = name;
           return;
         } catch (e) {
-          print(e);
+          if (kDebugMode) {
+            print(e);
+          }
         }
       }
       // If the dynamic library is not loaded, throw an [Exception].
