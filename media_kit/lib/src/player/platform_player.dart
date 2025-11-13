@@ -406,24 +406,14 @@ class PlayerConfiguration {
   /// Default: `true`.
   final bool async;
 
+  final int? androidSDK;
+
   /// Whether to use [libass](https://github.com/libass/libass) based subtitle rendering for native backend.
   ///
   /// By default, subtitles rendering is Flutter `Widget` based.
   ///
   /// On Android, this option requires [libassAndroidFont] to be set.
   final bool libass;
-
-  /// Asset name of the `.ttf` font file to be used for [libass](https://github.com/libass/libass) based subtitle rendering on Android.
-  ///
-  /// e.g. `assets/fonts/subtitle.ttf`
-  final String? libassAndroidFont;
-
-  /// Font name of the `.ttf` font file to be used for [libass](https://github.com/libass/libass) based subtitle rendering on Android.
-  ///
-  /// e.g. `Droid Sans Fallback`
-  ///
-  /// NOTE: The font name is required, not the file name.
-  final String? libassAndroidFontName;
 
   /// Sets the log level on native backend.
   /// Default: `none`.
@@ -447,12 +437,11 @@ class PlayerConfiguration {
     this.osc = false,
     this.pitch = false,
     this.title = 'package:media_kit',
+    this.androidSDK,
     this.ready,
     this.muted = false,
     this.async = true,
     this.libass = false,
-    this.libassAndroidFont,
-    this.libassAndroidFontName,
     this.logLevel = MPVLogLevel.error,
     this.bufferSize = 32 * 1024 * 1024,
     this.protocolWhitelist = const [

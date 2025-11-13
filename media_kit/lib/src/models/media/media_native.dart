@@ -13,8 +13,6 @@ import 'package:safe_local_storage/safe_local_storage.dart';
 import 'package:media_kit/src/models/playable.dart';
 
 import 'package:media_kit/src/player/native/utils/temp_file.dart';
-import 'package:media_kit/src/player/native/utils/asset_loader.dart';
-import 'package:media_kit/src/player/native/utils/android_content_uri_provider.dart';
 
 /// {@template media}
 ///
@@ -46,21 +44,6 @@ class Media extends Playable {
       // Remove [Media] instance from [cache] if reference count is 0.
       if (ref[uri] == 0) {
         cache.remove(uri);
-      }
-      // content:// : Close the possible file descriptor on Android.
-      try {
-        if (Platform.isAndroid) {
-          final data = Uri.parse(uri);
-          if (data.isScheme('FD')) {
-            final fd = int.parse(data.authority);
-            if (fd > 0) {
-              await AndroidContentUriProvider.closeFileDescriptor(uri);
-            }
-          }
-        }
-      } catch (exeception, stacktrace) {
-        print(exeception);
-        print(stacktrace);
       }
       // Media.memory : Delete the temporary file.
       try {
@@ -144,10 +127,6 @@ class Media extends Playable {
 
   /// Normalizes the passed URI.
   static String normalizeURI(String uri) {
-    if (uri.startsWith(_kAssetScheme)) {
-      // Handle asset:// scheme. Only for Flutter.
-      return AssetLoader.load(uri);
-    }
     // content:// URI support for Android.
     // try {
     //   if (Platform.isAndroid) {
@@ -212,9 +191,6 @@ class Media extends Playable {
   @override
   String toString() =>
       'Media($uri, extras: $extras, httpHeaders: $httpHeaders, start: $start, end: $end)';
-
-  /// URI scheme used to identify Flutter assets.
-  static const String _kAssetScheme = 'asset://';
 
   /// Previously created [Media] instances.
   /// This [HashMap] is used to retrieve previously set [extras] & [httpHeaders].

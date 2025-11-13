@@ -50,15 +50,9 @@ abstract class NativeLibrary {
     // Attempt to load default names.
     final names = {
       'windows': [
-        'libmpv-2.dll',
         'libmediaxx.dll',
-        'mpv-2.dll',
-        'mpv-1.dll',
       ],
       'linux': [
-        'libmpv.so',
-        'libmpv.so.2',
-        'libmpv.so.1',
         'libmediaxx.so',
       ],
       'macos': [
@@ -69,7 +63,6 @@ abstract class NativeLibrary {
       ],
       'android': [
         'libmediaxx.so',
-        'libmpv.so',
       ],
     }[Platform.operatingSystem];
     if (names != null) {
