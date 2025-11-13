@@ -8,7 +8,6 @@ import 'dart:ffi';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
-import 'package:path/path.dart';
 import 'package:meta/meta.dart';
 import 'package:image/image.dart';
 import 'package:synchronized/synchronized.dart';
@@ -26,8 +25,6 @@ import 'package:media_kit/src/models/video_params.dart';
 import 'package:media_kit/src/player/native/core/fallback_bitrate_handler.dart';
 import 'package:media_kit/src/player/native/core/initializer.dart';
 import 'package:media_kit/src/player/native/core/native_library.dart';
-import 'package:media_kit/src/player/native/utils/android_asset_loader.dart';
-import 'package:media_kit/src/player/native/utils/android_helper.dart';
 import 'package:media_kit/src/player/native/utils/isolates.dart';
 import 'package:media_kit/src/player/native/utils/native_reference_holder.dart';
 import 'package:media_kit/src/player/native/utils/temp_file.dart';
@@ -37,7 +34,6 @@ import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
 
 /// Initializes the native backend for package:media_kit.
 void nativeEnsureInitialized({String? libmpv}) {
-  AndroidHelper.ensureInitialized();
   NativeLibrary.ensureInitialized(libmpv: libmpv);
   NativeReferenceHolder.ensureInitialized((references) async {
     if (references.isEmpty) {
@@ -164,41 +160,26 @@ class NativePlayer extends PlatformPlayer {
       // Enter paused state.
       await _setPropertyFlag('pause', true);
 
-      if (playlist.any((media) => media.uri.startsWith('fd://'))) {
-        // The fd:// scheme is used to reference content:// URIs on Android.
-        // The loadlist command does not support this by default, yielding "Refusing to load potentially unsafe URL from a playlist."
-        // So, we fallback to loading each file individually.
-        for (int i = 0; i < playlist.length; i++) {
-          await _command(
-            [
-              'loadfile',
-              playlist[i].uri,
-              'append',
-            ],
-          );
-        }
-      } else {
-        final file = await TempFile.create();
-        final buffer = StringBuffer();
-        for (final media in playlist) {
-          buffer.writeln(media.uri);
-        }
-        final list = buffer.toString();
-
-        await file.write_(list);
-
-        await _command(
-          [
-            'loadlist',
-            file.path,
-            'append',
-          ],
-        );
-
-        Future.delayed(const Duration(seconds: 5), () {
-          file.delete_();
-        });
+      final file = await TempFile.create();
+      final buffer = StringBuffer();
+      for (final media in playlist) {
+        buffer.writeln(media.uri);
       }
+      final list = buffer.toString();
+
+      await file.write_(list);
+
+      await _command(
+        [
+          'loadlist',
+          file.path,
+          'append',
+        ],
+      );
+
+      Future.delayed(const Duration(seconds: 5), () {
+        file.delete_();
+      });
 
       // If [play] is `true`, then exit paused state.
       if (play) {
@@ -1534,37 +1515,8 @@ class NativePlayer extends PlatformPlayer {
         if (!test) 'vid': 'no',
       };
 
-      if (Platform.isAndroid &&
-          configuration.libass &&
-          configuration.libassAndroidFont != null &&
-          configuration.libassAndroidFontName != null) {
-        try {
-          // On Android, the system fonts cannot be picked up by libass/fontconfig. This makes libass subtitle rendering fail.
-          // We save the subtitle font to the application's cache directory and set `config` & `config-dir` to use it.
-          final subfont = await AndroidAssetLoader.load(
-            join(
-              'flutter_assets',
-              configuration.libassAndroidFont,
-            ),
-          );
-          if (subfont.isNotEmpty) {
-            final directory = dirname(subfont);
-            // This asset is bundled as part of `package:media_kit_libs_android_video`.
-            // Use it if located inside the application bundle, otherwise no worries.
-            options.addAll(
-              {
-                'config': 'yes',
-                'sub-fonts-dir': directory,
-                'sub-font': configuration.libassAndroidFontName ?? '',
-              },
-            );
-            print(subfont);
-            print(directory);
-          }
-        } catch (exception, stacktrace) {
-          print(exception);
-          print(stacktrace);
-        }
+      if (Platform.isAndroid && configuration.libass) {
+        // TODO: need set font
       }
 
       ctx = await Initializer(mpv).create(
@@ -1614,14 +1566,11 @@ class NativePlayer extends PlatformPlayer {
         'linear-downscaling': 'no',
         'sigmoid-upscaling': 'no',
         'hdr-compute-peak': 'no',
-        if (AndroidHelper.isPhysicalDevice || AndroidHelper.APILevel > 25)
-          'ao': 'opensles'
         // Disable audio output on older Android emulators with API Level < 25.
         // OpenSL ES audio output seems to be broken on some of these.
-        else if (AndroidHelper.isEmulator && AndroidHelper.APILevel <= 25)
-          'ao': 'null',
-        'subs-fallback': 'yes',
-        'subs-with-matching-audio': 'yes',
+        'ao': 'opensles',
+        'subs-fallback': 'no',
+        'subs-with-matching-audio': 'no',
       };
       // Other properties based on [PlayerConfiguration].
       properties.addAll(

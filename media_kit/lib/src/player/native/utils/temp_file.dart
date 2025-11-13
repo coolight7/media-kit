@@ -8,8 +8,6 @@ import 'package:path/path.dart';
 import 'package:safe_local_storage/safe_local_storage.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:media_kit/src/player/native/utils/android_helper.dart';
-
 /// {@template temp_file}
 ///
 /// TempFile
@@ -30,7 +28,7 @@ abstract class TempFile {
     } else if (Platform.isIOS) {
       result = Directory.systemTemp.path;
     } else if (Platform.isAndroid) {
-      result = AndroidHelper.filesDir ?? Directory.systemTemp.path;
+      result = Directory.systemTemp.path;
     }
     if (result != null) {
       return result;
