@@ -98,8 +98,11 @@ class Player {
   /// {@macro player}
   Player({
     PlayerConfiguration configuration = const PlayerConfiguration(),
+    PlatformPlayer? platformPlayer,
   }) {
-    if (UniversalPlatform.isWindows) {
+    if (platformPlayer != null) {
+      platform = platformPlayer;
+    } else if (UniversalPlatform.isWindows) {
       platform = NativePlayer(configuration: configuration);
     } else if (UniversalPlatform.isLinux) {
       platform = NativePlayer(configuration: configuration);
