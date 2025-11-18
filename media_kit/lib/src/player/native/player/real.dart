@@ -1568,7 +1568,8 @@ class NativePlayer extends PlatformPlayer {
         'hdr-compute-peak': 'no',
         // Disable audio output on older Android emulators with API Level < 25.
         // OpenSL ES audio output seems to be broken on some of these.
-        'ao': 'opensles',
+        if (Platform.isAndroid && (configuration.androidSDK ?? 0) < 25)
+          'ao': 'opensles',
         'subs-fallback': 'no',
         'subs-with-matching-audio': 'no',
       };
