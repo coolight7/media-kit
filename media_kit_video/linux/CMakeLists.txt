@@ -50,12 +50,17 @@ if(MEDIA_KIT_LIBS_AVAILABLE)
     "${epoxy_INCLUDE_DIRS}"
   )
 
+  target_link_directories(
+    ${PLUGIN_NAME} 
+    "${MUSICXX_SOURCE_DIR}/resource/ffmpeg/linux/"
+  )
+
   target_link_libraries(
     ${PLUGIN_NAME} PRIVATE
     flutter
     PkgConfig::GTK
-    PkgConfig::mpv
     PkgConfig::epoxy
+    mediaxx
   )
 else()
   message(NOTICE "media_kit: WARNING: package:media_kit_libs_*** not found.")
