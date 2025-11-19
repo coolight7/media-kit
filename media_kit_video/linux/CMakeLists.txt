@@ -12,6 +12,8 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 
 set(PLUGIN_NAME "media_kit_video_plugin")
 
+get_property(MUSICXX_SOURCE_DIR GLOBAL PROPERTY MUSICXX_SOURCE_DIR)
+
 if(MEDIA_KIT_LIBS_AVAILABLE)
   add_library(
     ${PLUGIN_NAME} SHARED
@@ -51,16 +53,28 @@ if(MEDIA_KIT_LIBS_AVAILABLE)
   )
 
   target_link_directories(
-    ${PLUGIN_NAME} 
+    ${PLUGIN_NAME} PRIVATE
     "${MUSICXX_SOURCE_DIR}/resource/ffmpeg/linux/"
   )
 
   target_link_libraries(
     ${PLUGIN_NAME} PRIVATE
     flutter
+    
+    mediaxx
+
     PkgConfig::GTK
     PkgConfig::epoxy
-    mediaxx
+  )
+
+  target_link_options(
+    ${PLUGIN_NAME} PUBLIC
+    "-Wno-unused-command-line-argument"
+    "-Wl,--allow-shlib-undefined"
+  )
+  target_link_options(
+    ${PLUGIN_NAME} PRIVATE
+    "-Wl,-rpath=\$ORIGIN"
   )
 else()
   message(NOTICE "media_kit: WARNING: package:media_kit_libs_*** not found.")
