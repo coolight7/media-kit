@@ -33,3 +33,6 @@ build/
 
 # Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
 /pubspec.lock
+
+/libs/android/media_kit_libs_android_video/outlibs
+/libs/windows/media_kit_libs_windows_video/outlibs
