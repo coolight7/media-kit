@@ -19,9 +19,7 @@ Pod::Spec.new do |s|
   s.source_files     = 'Classes/**/*'
   s.dependency 'Flutter'
 
-  s.vendored_frameworks = 'Frameworks/*.xcframework'
-
-  s.platform = :ios, '9.0'
+  s.platform = :ios, '13.0'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     # Flutter.framework does not contain a i386 slice.

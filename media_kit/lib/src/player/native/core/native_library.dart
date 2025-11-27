@@ -49,21 +49,11 @@ abstract class NativeLibrary {
     } catch (_) {}
     // Attempt to load default names.
     final names = {
-      'windows': [
-        'libmediaxx.dll',
-      ],
-      'linux': [
-        'libmediaxx.so',
-      ],
-      'macos': [
-        'Mpv.framework/Mpv',
-      ],
-      'ios': [
-        'Mpv.framework/Mpv',
-      ],
-      'android': [
-        'libmediaxx.so',
-      ],
+      'windows': ['libmediaxx.dll'],
+      'linux': ['libmediaxx.so'],
+      'macos': ['libmediaxx.dylib'],
+      'ios': ['libmediaxx.dylib'],
+      'android': ['libmediaxx.so'],
     }[Platform.operatingSystem];
     if (names != null) {
       // Try to load the dynamic library from the system using [DynamicLibrary.open].
