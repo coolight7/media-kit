@@ -40,6 +40,8 @@ function(check_directory_exists_and_not_empty dir result_var)
   endif()
 endfunction()
 
+get_property(XX_FLUTTER_ROOT_SOURCE_DIR GLOBAL PROPERTY XX_FLUTTER_ROOT_SOURCE_DIR)
+
 # libmpv archive containing the pre-built shared libraries & headers.
 set(LIBMPV "mpv.7z")
 
@@ -48,7 +50,7 @@ set(LIBMPV_URL "https://github.com/media-kit/libmpv-win32-video-build/releases/d
 set(LIBMPV_MD5 "a832ef24b3a6ff97cd2560b5b9d04cd8")
 
 # Download location of the libmpv archive.
-set(LIBMPV_ARCHIVE "${CMAKE_CURRENT_LIST_DIR}/../outlibs/${LIBMPV}")
+set(LIBMPV_ARCHIVE "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/ffmpeg/windows/${LIBMPV}")
 set(LIBMPV_SRC "${CMAKE_BINARY_DIR}/libmpv")
 
 download_and_verify(
@@ -84,7 +86,7 @@ set(ANGLE_URL "https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES/
 set(ANGLE_MD5 "e866f13e8d552348058afaafe869b1ed")
 
 # Download location of the ANGLE archive.
-set(ANGLE_ARCHIVE "${CMAKE_CURRENT_LIST_DIR}/../outlibs/${ANGLE}")
+set(ANGLE_ARCHIVE "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/ffmpeg/windows/${ANGLE}")
 set(ANGLE_SRC "${CMAKE_BINARY_DIR}/ANGLE")
 
 download_and_verify(

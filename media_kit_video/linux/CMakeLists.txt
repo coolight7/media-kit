@@ -12,7 +12,7 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 
 set(PLUGIN_NAME "media_kit_video_plugin")
 
-get_property(MUSICXX_SOURCE_DIR GLOBAL PROPERTY MUSICXX_SOURCE_DIR)
+get_property(XX_FLUTTER_ROOT_SOURCE_DIR GLOBAL PROPERTY XX_FLUTTER_ROOT_SOURCE_DIR)
 
 if(MEDIA_KIT_LIBS_AVAILABLE)
   add_library(
@@ -54,7 +54,7 @@ if(MEDIA_KIT_LIBS_AVAILABLE)
 
   target_link_directories(
     ${PLUGIN_NAME} PRIVATE
-    "${MUSICXX_SOURCE_DIR}/resource/ffmpeg/linux/"
+    "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/ffmpeg/linux/"
   )
 
   target_link_libraries(
