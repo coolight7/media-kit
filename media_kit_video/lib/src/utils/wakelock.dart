@@ -32,9 +32,7 @@ class Wakelock {
   }
 
   /// Acquires the wakelock if enabled count is greater than 0.
-  void _update() {
-
-  }
+  void _update() {}
 
   /// Whether the wakelock is enabled for this instance.
   bool _enabled = false;
