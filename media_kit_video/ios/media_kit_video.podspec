@@ -26,10 +26,13 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '13.0'
   s.swift_version    = '5.0'
   s.dependency         'Flutter'
+  s.resource_bundles = {
+    'media_kit_video_privacy' => ['media_kit_video/Sources/media_kit_video/PrivacyInfo.xcprivacy']
+  }
   
   if mku.libs_found
 
-    s.source_files        = 'Classes/plugin/**/*.swift', 'Headers/**/*.h'
+    s.source_files        = 'media_kit_video/Sources/media_kit_video/plugin/**/*.swift', 'Headers/**/*.h'
     s.pod_target_xcconfig = {
       'DEFINES_MODULE'                               => 'YES',
       'GCC_WARN_INHIBIT_ALL_WARNINGS'                => 'YES',
@@ -39,7 +42,7 @@ Pod::Spec.new do |s|
       'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     }
   else
-    s.source_files        = 'Classes/stub/**/*.swift'
+    s.source_files        = 'media_kit_video/Sources/media_kit_video/stub/**/*.swift'
     s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   end
 end
