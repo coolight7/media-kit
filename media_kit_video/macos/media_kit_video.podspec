@@ -37,8 +37,8 @@ Pod::Spec.new do |s|
       'DEFINES_MODULE'                      => 'YES',
       'GCC_WARN_INHIBIT_ALL_WARNINGS'       => 'YES',
       'GCC_PREPROCESSOR_DEFINITIONS'        => '"$(inherited)" GL_SILENCE_DEPRECATION COREVIDEO_SILENCE_GL_DEPRECATION',
-      'FRAMEWORK_SEARCH_PATHS[sdk=macosx*]' => '"$(inherited)" "$(PROJECT_DIR)/../Flutter/ephemeral/.symlinks/plugins/%s/macos/Frameworks/.symlinks/mpv/macos"',
-      'OTHER_LDFLAGS'                       => '"$(inherited)" -L/Users/coolight/0Acoolight/program/flutter/mymusic/resource/ffmpeg/macos/ -lmediaxx',
+      'FRAMEWORK_SEARCH_PATHS[sdk=macosx*]' => '"$(inherited)" "$(PROJECT_DIR)/../../resource/ffmpeg/macos"',
+      'OTHER_LDFLAGS'                       => '"$(inherited)" -lmediaxx',
     }
   else
     s.source_files        = 'media_kit_video/Sources/media_kit_video/stub/**/*.swift'

@@ -37,8 +37,8 @@ Pod::Spec.new do |s|
       'DEFINES_MODULE'                               => 'YES',
       'GCC_WARN_INHIBIT_ALL_WARNINGS'                => 'YES',
       'GCC_PREPROCESSOR_DEFINITIONS'                 => '"$(inherited)" GL_SILENCE_DEPRECATION COREVIDEO_SILENCE_GL_DEPRECATION',
-      'FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]'        => '"$(inherited)" "$(PROJECT_DIR)/../.symlinks/plugins/%s/ios/Frameworks/.symlinks/mpv/ios"',
-      'OTHER_LDFLAGS'                                => '"$(inherited)" -L/Users/coolight/0Acoolight/program/flutter/mymusic/resource/ffmpeg/ios -lmediaxx ',
+      'FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]'        => '"$(inherited)" "$(PROJECT_DIR)/../../resource/ffmpeg/ios"',
+      'OTHER_LDFLAGS'                                => '"$(inherited)" -lmediaxx ',
       # Flutter.framework does not contain a i386 slice.
       'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     }
