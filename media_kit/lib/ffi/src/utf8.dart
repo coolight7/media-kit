@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:media_kit/ffi/src/allocation.dart';
+import 'package:media_kit/media_kit.dart';
 
 /// The contents of a native zero-terminated array of UTF-8 code units.
 ///
@@ -48,7 +49,41 @@ extension Utf8Pointer on Pointer<Utf8> {
     }
 
     final bytes = codeUnits.asTypedList(length);
+
     final result = utf8.decode(bytes, allowMalformed: true);
+
+    // Try to decode bad characters from libmpv.
+    try {
+      if (result.contains('�')) {
+        final characters = result.split('');
+        for (int i = 0; i < length; i++) {
+          if (characters[i] == '�' && kHTMLCharset.containsKey(bytes[i])) {
+            characters[i] = kHTMLCharset[bytes[i]]!;
+          }
+        }
+        return characters.join('');
+      }
+    } catch (_) {}
+
+    return result;
+  }
+
+  Future<String> toDartStringAsync({int? length}) async {
+    _ensureNotNullptr('toDartStringAsync');
+    final codeUnits = cast<Uint8>();
+    if (length != null) {
+      RangeError.checkNotNegative(length, 'length');
+    } else {
+      length = _length(codeUnits);
+    }
+
+    final bytes = codeUnits.asTypedList(length);
+
+    var result = await MediaKit.parseToUtf8String?.call(bytes);
+    if (null != result) {
+      return result;
+    }
+    result = utf8.decode(bytes, allowMalformed: true);
 
     // Try to decode bad characters from libmpv.
     try {

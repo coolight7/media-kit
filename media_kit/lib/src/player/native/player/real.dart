@@ -807,7 +807,8 @@ class NativePlayer extends PlatformPlayer {
     if (event.ref.event_id ==
         generated.mpv_event_id.MPV_EVENT_PROPERTY_CHANGE) {
       final prop = event.ref.data.cast<generated.mpv_event_property>();
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'idle-active' &&
+      final propName = prop.ref.name.cast<Utf8>().toDartString();
+      if (propName == 'idle-active' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
         await future;
         // The [Player] has entered the idle state; initialization is complete.
@@ -817,7 +818,7 @@ class NativePlayer extends PlatformPlayer {
       }
       // Following properties are unrelated to the playback lifecycle. Thus, these can be accessed before initialization is complete.
       // e.g. audio-device & audio-device-list seem to be emitted before idle-active.
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'audio-device' &&
+      if (propName == 'audio-device' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final value = prop.ref.data.cast<generated.mpv_node>();
         if (value.ref.format == generated.mpv_format.MPV_FORMAT_STRING) {
@@ -829,7 +830,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'audio-device-list' &&
+      if (propName == 'audio-device-list' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final value = prop.ref.data.cast<generated.mpv_node>();
         final audioDevices = <AudioDevice>[];
@@ -935,7 +936,8 @@ class NativePlayer extends PlatformPlayer {
     if (event.ref.event_id ==
         generated.mpv_event_id.MPV_EVENT_PROPERTY_CHANGE) {
       final prop = event.ref.data.cast<generated.mpv_event_property>();
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'pause' &&
+      final propName = prop.ref.name.cast<Utf8>().toDartString();
+      if (propName == 'pause' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
         final playing = prop.ref.data.cast<Int8>().value == 0;
         if (isPlayingStateChangeAllowed) {
@@ -945,7 +947,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'core-idle' &&
+      if (propName == 'core-idle' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
         // Check for [isBufferingStateChangeAllowed] because `pause` causes `core-idle` to be fired.
         final buffering = prop.ref.data.cast<Int8>().value == 1;
@@ -964,7 +966,7 @@ class NativePlayer extends PlatformPlayer {
         }
         isBufferingStateChangeAllowed = true;
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'paused-for-cache' &&
+      if (propName == 'paused-for-cache' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
         final buffering = prop.ref.data.cast<Int8>().value == 1;
         state = state.copyWith(buffering: buffering);
@@ -972,7 +974,7 @@ class NativePlayer extends PlatformPlayer {
           bufferingController.add(buffering);
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'demuxer-cache-time' &&
+      if (propName == 'demuxer-cache-time' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
         final buffer = Duration(
           microseconds: prop.ref.data.cast<Double>().value * 1e6 ~/ 1,
@@ -982,8 +984,7 @@ class NativePlayer extends PlatformPlayer {
           bufferController.add(buffer);
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() ==
-              'cache-buffering-state' &&
+      if (propName == 'cache-buffering-state' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
         final bufferingPercentage = prop.ref.data.cast<Double>().value;
 
@@ -992,7 +993,7 @@ class NativePlayer extends PlatformPlayer {
           bufferingPercentageController.add(bufferingPercentage);
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'time-pos' &&
+      if (propName == 'time-pos' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
         final position = Duration(
           microseconds: prop.ref.data.cast<Double>().value * 1e6 ~/ 1,
@@ -1002,7 +1003,7 @@ class NativePlayer extends PlatformPlayer {
           positionController.add(position);
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'duration' &&
+      if (propName == 'duration' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
         final duration = Duration(
           microseconds: prop.ref.data.cast<Double>().value * 1e6 ~/ 1,
@@ -1031,7 +1032,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'volume' &&
+      if (propName == 'volume' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
         final volume = prop.ref.data.cast<Double>().value;
         state = state.copyWith(volume: volume);
@@ -1039,7 +1040,7 @@ class NativePlayer extends PlatformPlayer {
           volumeController.add(volume);
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'audio-params' &&
+      if (propName == 'audio-params' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final data = prop.ref.data.cast<generated.mpv_node>();
         final list = data.ref.u.list.ref;
@@ -1095,7 +1096,7 @@ class NativePlayer extends PlatformPlayer {
           audioParamsController.add(state.audioParams);
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'audio-bitrate' &&
+      if (propName == 'audio-bitrate' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
         final uri = current.firstOrNull?.uri;
         if (null != uri) {
@@ -1118,7 +1119,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'sub-text' &&
+      if (propName == 'sub-text' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final value = prop.ref.data.cast<generated.mpv_node>();
         if (value.ref.format == generated.mpv_format.MPV_FORMAT_STRING) {
@@ -1134,7 +1135,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'secondary-sub-text' &&
+      if (propName == 'secondary-sub-text' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final value = prop.ref.data.cast<generated.mpv_node>();
         if (value.ref.format == generated.mpv_format.MPV_FORMAT_STRING) {
@@ -1150,7 +1151,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'eof-reached' &&
+      if (propName == 'eof-reached' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
         final value = prop.ref.data.cast<Bool>().value;
         if (value) {
@@ -1172,7 +1173,7 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'video-params' &&
+      if (propName == 'video-params' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
         final node = prop.ref.data.cast<generated.mpv_node>().ref;
         final data = <String, dynamic>{};
@@ -1247,14 +1248,14 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
-      if (observed.containsKey(prop.ref.name.cast<Utf8>().toDartString())) {
+      if (observed.containsKey(propName)) {
         if (prop.ref.format == generated.mpv_format.MPV_FORMAT_NONE) {
-          final fn = observed[prop.ref.name.cast<Utf8>().toDartString()];
+          final fn = observed[propName];
           if (fn != null) {
             final data = mpv.mpv_get_property_string(ctx, prop.ref.name);
             if (data != nullptr) {
               try {
-                await fn.call(data.cast<Utf8>().toDartString());
+                await fn.call(await data.cast<Utf8>().toDartStringAsync());
               } catch (exception, stacktrace) {
                 print(exception);
                 print(stacktrace);

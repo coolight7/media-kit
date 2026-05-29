@@ -4,6 +4,8 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 
+import 'dart:async';
+
 import 'package:universal_platform/universal_platform.dart';
 
 import 'package:media_kit/src/player/native/player/player.dart';
@@ -16,6 +18,7 @@ import 'package:media_kit/src/player/native/player/player.dart';
 ///
 /// {@endtemplate}
 abstract class MediaKit {
+  static FutureOr<String?> Function(List<int> data)? parseToUtf8String;
   static bool _initialized = false;
 
   /// {@macro media_kit}
