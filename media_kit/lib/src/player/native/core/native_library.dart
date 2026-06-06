@@ -38,15 +38,6 @@ abstract class NativeLibrary {
       _resolved = libmpv;
       return;
     }
-    // Attempt to load [LIBMPV_LIBRARY_PATH] environment variable.
-    try {
-      final env = Platform.environment['LIBMPV_LIBRARY_PATH'];
-      if (env != null) {
-        DynamicLibrary.open(env);
-        _resolved = env;
-        return;
-      }
-    } catch (_) {}
     // Attempt to load default names.
     final names = {
       'windows': ['libmediaxx.dll'],
