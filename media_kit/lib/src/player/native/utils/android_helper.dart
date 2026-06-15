@@ -29,12 +29,12 @@ abstract class AndroidHelper {
         DynamicLibrary? libmpv, libavcodec, libmediakitandroidhelper;
         try {
           libmpv = DynamicLibrary.open(
-            'libmpv.so',
+            'libmediaxx.so',
           );
         } catch (_) {}
         try {
           libavcodec = DynamicLibrary.open(
-            'libavcodec.so',
+            'libmediaxx.so',
           );
         } catch (_) {}
         try {

@@ -1323,7 +1323,8 @@ class NativePlayer extends PlatformPlayer {
     }
     if (event.ref.event_id == generated.mpv_event_id.MPV_EVENT_HOOK) {
       final prop = event.ref.data.cast<generated.mpv_event_hook>();
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'on_load') {
+      final propName = prop.ref.name.cast<Utf8>().toDartString();
+      if (propName == 'on_load') {
         // --------------------------------------------------
         for (final hook in onLoadHooks) {
           try {
@@ -1450,7 +1451,7 @@ class NativePlayer extends PlatformPlayer {
           prop.ref.id,
         );
       }
-      if (prop.ref.name.cast<Utf8>().toDartString() == 'on_unload') {
+      if (propName == 'on_unload') {
         // --------------------------------------------------
         for (final hook in onUnloadHooks) {
           try {
