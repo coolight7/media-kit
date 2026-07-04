@@ -8,6 +8,7 @@ import 'dart:ffi';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
+import 'package:media_kit/generated/libmpv/bindings.dart' as binding;
 import 'package:meta/meta.dart';
 import 'package:image/image.dart';
 import 'package:synchronized/synchronized.dart';
@@ -749,6 +750,27 @@ class NativePlayer extends PlatformPlayer {
     calloc.free(name);
   }
 
+  Future<void> observeAudioFFTData(void Function(Uint8List) listener) async {
+    if (disposed) {
+      throw AssertionError('[Player] has been disposed');
+    }
+
+    await waitForPlayerInitialization;
+    await waitForVideoControllerInitializationIfAttached;
+
+    onAudioFFTData = listener;
+    const property = "audio-fft";
+    final reply = property.hashCode;
+    final name = property.toNativeUtf8();
+    mpv.mpv_observe_property(
+      ctx,
+      reply,
+      name.cast(),
+      generated.mpv_format.MPV_FORMAT_NONE,
+    );
+    calloc.free(name);
+  }
+
   /// Unobserves property for the internal libmpv instance of this [Player].
   /// Please use this method only if you know what you are doing, existing methods in [Player] implementation are suited for the most use cases.
   ///
@@ -927,6 +949,29 @@ class NativePlayer extends PlatformPlayer {
           if (!audioDevicesController.isClosed) {
             audioDevicesController.add(audioDevices);
           }
+        }
+      }
+      if (onAudioFFTData != null && propName == "audio-fft") {
+        final result = calloc<binding.mpv_byte_array>();
+        try {
+          final ret = mpv.mpv_get_property(
+            ctx,
+            prop.ref.name,
+            generated.mpv_format.MPV_FORMAT_BYTE_ARRAY,
+            result.cast(),
+          );
+          if (ret >= 0 && result.ref.data != nullptr) {
+            try {
+              onAudioFFTData?.call(
+                result.ref.data.cast<Uint8>().asTypedList(result.ref.size),
+              );
+            } catch (exception, stacktrace) {
+              print(exception);
+              print(stacktrace);
+            }
+          }
+        } finally {
+          calloc.free(result);
         }
       }
     }

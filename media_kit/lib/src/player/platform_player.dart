@@ -38,6 +38,9 @@ abstract class PlatformPlayer {
   /// Current state of the player.
   late PlayerState state = PlayerState();
 
+  @protected
+  void Function(Uint8List)? onAudioFFTData;
+
   /// Current state of the player available as listenable [Stream]s.
   late PlayerStream stream = PlayerStream(
     playingController.stream.distinct(
