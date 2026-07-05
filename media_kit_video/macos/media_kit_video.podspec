@@ -37,8 +37,8 @@ Pod::Spec.new do |s|
       'DEFINES_MODULE'                      => 'YES',
       'GCC_WARN_INHIBIT_ALL_WARNINGS'       => 'YES',
       'GCC_PREPROCESSOR_DEFINITIONS'        => '"$(inherited)" GL_SILENCE_DEPRECATION COREVIDEO_SILENCE_GL_DEPRECATION',
-      'FRAMEWORK_SEARCH_PATHS[sdk=macosx*]' => '"$(inherited)" "$(PROJECT_DIR)/../../resource/ffmpeg/macos"',
-      'OTHER_LDFLAGS'                       => '"$(inherited)" -L$(PROJECT_DIR)/../../resource/ffmpeg/macos -lmediaxx',
+      'FRAMEWORK_SEARCH_PATHS[sdk=macosx*]' => '"$(inherited)" "$(PROJECT_DIR)/../../resource/libs/macos/lib"',
+      'OTHER_LDFLAGS'                       => '"$(inherited)" -L$(PROJECT_DIR)/../../resource/libs/macos/lib -lmediaxx',
     }
   else
     s.source_files        = 'media_kit_video/Sources/media_kit_video/stub/**/*.swift'
