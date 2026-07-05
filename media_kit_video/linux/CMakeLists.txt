@@ -29,6 +29,7 @@ if(MEDIA_KIT_LIBS_AVAILABLE)
 
   # Check for libmpv & epoxy headers & libraries.
   find_package(PkgConfig REQUIRED)
+  set(ENV{PKG_CONFIG_PATH} "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/libs/linux/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
   pkg_check_modules(mpv IMPORTED_TARGET mpv)
   pkg_check_modules(epoxy IMPORTED_TARGET epoxy)
 
@@ -46,15 +47,16 @@ if(MEDIA_KIT_LIBS_AVAILABLE)
   target_compile_options(${PLUGIN_NAME} PRIVATE "${epoxy_CFLAGS_OTHER}")
 
   target_include_directories(
-    ${PLUGIN_NAME} INTERFACE
+    ${PLUGIN_NAME} PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/libs/linux/include/"
     "${mpv_INCLUDE_DIRS}"
     "${epoxy_INCLUDE_DIRS}"
   )
 
   target_link_directories(
     ${PLUGIN_NAME} PRIVATE
-    "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/ffmpeg/linux/"
+    "${XX_FLUTTER_ROOT_SOURCE_DIR}/resource/libs/linux/lib"
   )
 
   target_link_libraries(
