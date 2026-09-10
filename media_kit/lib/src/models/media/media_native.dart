@@ -40,10 +40,12 @@ class Media extends Playable {
       final uri = context.uri;
       final memory = context.memory;
       // Decrement reference count.
-      ref[uri] = ((ref[uri] ?? 0) - 1).clamp(0, 1 << 32);
+      final references = ((ref[uri] ?? 0) - 1).clamp(0, 1 << 32);
+      ref[uri] = references;
       // Remove [Media] instance from [cache] if reference count is 0.
-      if (ref[uri] == 0) {
+      if (references == 0) {
         cache.remove(uri);
+        ref.remove(uri);
       }
       // Media.memory : Delete the temporary file.
       try {
@@ -80,16 +82,31 @@ class Media extends Playable {
   /// Default: `null`.
   final Duration? end;
 
-  /// Whether instance is instantiated from [Media.memory].
-  bool _memory = false;
-
   /// {@macro media}
-  Media(
+  factory Media(
+    String resource, {
+    Map<String, dynamic>? extras,
+    Map<String, String>? httpHeaders,
+    Duration? start,
+    Duration? end,
+  }) {
+    return Media._(
+      resource,
+      extras: extras,
+      httpHeaders: httpHeaders,
+      start: start,
+      end: end,
+      memory: false,
+    );
+  }
+
+  Media._(
     String resource, {
     Map<String, dynamic>? extras,
     Map<String, String>? httpHeaders,
     this.start,
     this.end,
+    required bool memory,
   })  : uri = normalizeURI(resource),
         extras = extras ?? cache[normalizeURI(resource)]?.extras,
         httpHeaders =
@@ -106,7 +123,7 @@ class Media extends Playable {
       this,
       _MediaFinalizerContext(
         uri,
-        _memory,
+        memory,
       ),
     );
   }
@@ -120,9 +137,10 @@ class Media extends Playable {
   }) async {
     final file = await TempFile.create();
     await file.write_(data);
-    final instance = Media(file.path);
-    instance._memory = true;
-    return instance;
+    return Media._(
+      file.path,
+      memory: true,
+    );
   }
 
   /// Normalizes the passed URI.
