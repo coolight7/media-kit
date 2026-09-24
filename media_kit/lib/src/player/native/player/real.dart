@@ -172,6 +172,11 @@ class NativePlayer extends PlatformPlayer {
 
       final file = await TempFile.create();
       final buffer = StringBuffer();
+      // mpv's `loadlist` forces the "playlist" demuxer. A file without the
+      // `#EXTM3U` header can only be read as a headerless plain text playlist,
+      // and mpv logs "Reading plaintext playlist." (warning) each time it is
+      // opened. Writing the header makes mpv take the regular m3u path.
+      buffer.writeln('#EXTM3U');
       for (final media in playlist) {
         buffer.writeln(media.uri);
       }
