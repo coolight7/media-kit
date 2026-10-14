@@ -1,0 +1,19 @@
+// media_kit_video 用的 mpv C 接口模块（Swift 里 `import Mpv`）
+//
+// 头文件就在同目录的 mpv/ 里，随包一起进版本库，必须和 libmediaxx.dylib 用同一版 mpv：
+// 更新 libmpv-apple-build 之后，把 buildscripts/prefix/Darwin/arm64/include/mpv/*.h
+// 覆盖到本目录的 mpv/ 里。这里放的是插件实际会用到的四个头文件。
+//
+// 不放到 media_kit_video/macos/Headers/ 是因为那个目录由 podspec 里的 make 生成、
+// 并且被 .gitignore 忽略，而现在插件走 Swift Package Manager，podspec 不会执行，
+// 新克隆的仓库里不会有这个目录。放这里就不用依赖那一步。
+//
+// 链接的库不是 media-kit 官方的 Mpv.xcframework，而是仓库里的
+// resource/libs/macos/lib/libmediaxx.dylib，由 Package.swift 的 linkerSettings 指定。
+module Mpv [system] {
+    header "mpv/client.h"
+    header "mpv/render.h"
+    header "mpv/render_gl.h"
+    header "mpv/stream_cb.h"
+    export *
+}
