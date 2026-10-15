@@ -770,11 +770,14 @@ class NativePlayer extends PlatformPlayer {
     const property = "audio-fft";
     final reply = property.hashCode;
     final name = property.toNativeUtf8();
+    // Observe as byte array: then the spectrum arrives with the event and no
+    // extra mpv_get_property() call per frame is needed (that call would stop
+    // the playback thread every time).
     mpv.mpv_observe_property(
       ctx,
       reply,
       name.cast(),
-      generated.mpv_format.MPV_FORMAT_NONE,
+      generated.mpv_format.MPV_FORMAT_BYTE_ARRAY,
     );
     calloc.free(name);
   }
@@ -959,27 +962,24 @@ class NativePlayer extends PlatformPlayer {
           }
         }
       }
+      // The spectrum is part of the event (see observeAudioFFTData), so it is
+      // read from the event data. The buffer belongs to mpv and is released
+      // with the next event of this property, so a copy is handed out.
       if (onAudioFFTData != null && propName == "audio-fft") {
-        final result = calloc<binding.mpv_byte_array>();
-        try {
-          final ret = mpv.mpv_get_property(
-            ctx,
-            prop.ref.name,
-            generated.mpv_format.MPV_FORMAT_BYTE_ARRAY,
-            result.cast(),
-          );
-          if (ret >= 0 && result.ref.data != nullptr) {
+        if (prop.ref.format == generated.mpv_format.MPV_FORMAT_BYTE_ARRAY) {
+          final data = prop.ref.data.cast<binding.mpv_byte_array>();
+          if (data.ref.data != nullptr && data.ref.size > 0) {
             try {
               onAudioFFTData?.call(
-                result.ref.data.cast<Uint8>().asTypedList(result.ref.size),
+                Uint8List.fromList(
+                  data.ref.data.cast<Uint8>().asTypedList(data.ref.size),
+                ),
               );
             } catch (exception, stacktrace) {
               print(exception);
               print(stacktrace);
             }
           }
-        } finally {
-          calloc.free(result);
         }
       }
     }
