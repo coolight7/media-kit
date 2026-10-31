@@ -682,6 +682,51 @@ class NativePlayer extends PlatformPlayer {
     calloc.free(data);
   }
 
+  /// Sets a property for the internal libmpv instance using the *async* API.
+  ///
+  /// [setProperty] writes strings with `mpv_set_property_string`, which is a
+  /// **synchronous** call: while the mpv core is ending or switching files it waits
+  /// until the core has processed the request, and the calling thread (usually the
+  /// UI thread) is blocked for that time. This variant hands the request to mpv
+  /// (`mpv_set_property_async`) and completes when mpv replies instead, so the
+  /// calling thread is never blocked.
+  ///
+  /// Requests reach mpv in the order they were sent, and the returned [Future]
+  /// completes only after mpv has handled the request, so awaiting it keeps the
+  /// caller in step with libmpv (e.g. a property written before a `loadfile`).
+  ///
+  /// Returns the libmpv error code (`0` on success). The [Future] never completes
+  /// when the [NativePlayer] is disposed while the request is still in flight.
+  Future<int> setPropertyAsync(
+    String property,
+    String value, {
+    bool waitForInitialization = true,
+  }) async {
+    if (disposed) {
+      throw AssertionError('[Player] has been disposed');
+    }
+
+    if (waitForInitialization) {
+      await waitForPlayerInitialization;
+      await waitForVideoControllerInitializationIfAttached;
+    }
+
+    // `MPV_FORMAT_STRING` requires a `char **`.
+    final string = value.toNativeUtf8();
+    final ptr = calloc<Pointer<Void>>(1);
+    ptr.value = Pointer.fromAddress(string.address);
+    try {
+      return await _setPropertyAsync(
+        property,
+        generated.mpv_format.MPV_FORMAT_STRING,
+        ptr.cast(),
+      );
+    } finally {
+      calloc.free(ptr);
+      calloc.free(string);
+    }
+  }
+
   /// Retrieves the value of a property from the internal libmpv instance of this [Player].
   /// Please use this method only if you know what you are doing, existing methods in [Player] implementation are suited for the most use cases.
   ///
@@ -718,6 +763,54 @@ class NativePlayer extends PlatformPlayer {
     }
   }
 
+  /// Reads a property for the internal libmpv instance using the *async* API.
+  ///
+  /// [getProperty] calls `mpv_get_property_string`, which is **synchronous**: it
+  /// waits for the mpv core to answer on the calling thread (usually the UI
+  /// thread). This variant sends `mpv_get_property_async` and completes when the
+  /// `MPV_EVENT_GET_PROPERTY_REPLY` event arrives, so the calling thread is never
+  /// blocked.
+  ///
+  /// Returns the textual form of the property, or `null` when mpv cannot provide
+  /// it (unavailable property, or the request could not be sent). The [Future]
+  /// never completes when the [NativePlayer] is disposed while the request is in
+  /// flight.
+  Future<String?> getPropertyAsync(
+    String property, {
+    bool waitForInitialization = true,
+  }) async {
+    if (disposed) {
+      throw AssertionError('[Player] has been disposed');
+    }
+
+    if (waitForInitialization) {
+      await waitForPlayerInitialization;
+      await waitForVideoControllerInitializationIfAttached;
+    }
+
+    final namePtr = property.toNativeUtf8();
+    try {
+      final requestNumber = _asyncRequestNumber++;
+      final completer =
+          _getPropertyRequests[requestNumber] = Completer<String?>();
+      final immediate = mpv.mpv_get_property_async(
+        ctx,
+        requestNumber,
+        namePtr.cast(),
+        generated.mpv_format.MPV_FORMAT_STRING,
+      );
+      if (immediate < 0) {
+        // Sending failed, so no reply event will remove this request.
+        _getPropertyRequests.remove(requestNumber);
+        _logError(immediate, '_getProperty($property)');
+        return null;
+      }
+      return await completer.future;
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
   /// Observes property for the internal libmpv instance of this [Player].
   /// Please use this method only if you know what you are doing, existing methods in [Player] implementation are suited for the most use cases.
   ///
@@ -749,11 +842,15 @@ class NativePlayer extends PlatformPlayer {
     final reply = property.hashCode;
     observedProperties[property] = listener;
     final name = property.toNativeUtf8();
+    // Observe as a string: mpv then puts the value into the change event itself
+    // (`mpv_event_property.data` is a `char *`), so the listener gets it without
+    // an extra `mpv_get_property_string` call - that call **blocks** the calling
+    // thread (events are delivered on the UI isolate) while the core is busy.
     mpv.mpv_observe_property(
       ctx,
       reply,
       name.cast(),
-      generated.mpv_format.MPV_FORMAT_NONE,
+      generated.mpv_format.MPV_FORMAT_STRING,
     );
     calloc.free(name);
   }
@@ -897,6 +994,28 @@ class NativePlayer extends PlatformPlayer {
     await _command(command);
   }
 
+  /// Invokes a command with the *async* API (`mpv_command_async`) and completes
+  /// when mpv replies, regardless of [PlayerConfiguration.async].
+  ///
+  /// libmpv has no asynchronous form of a *command string*
+  /// (`mpv_command_string` is synchronous), so the command has to be given as an
+  /// argument list here. Returns the libmpv error code (`0` on success).
+  Future<int> commandAsync(
+    List<String> command, {
+    bool waitForInitialization = true,
+  }) async {
+    if (disposed) {
+      throw AssertionError('[Player] has been disposed');
+    }
+
+    if (waitForInitialization) {
+      await waitForPlayerInitialization;
+      await waitForVideoControllerInitializationIfAttached;
+    }
+
+    return await _commandAsync(command);
+  }
+
   Future<void> _handler(Pointer<generated.mpv_event> event) async {
     if (event.ref.event_id ==
         generated.mpv_event_id.MPV_EVENT_PROPERTY_CHANGE) {
@@ -984,6 +1103,32 @@ class NativePlayer extends PlatformPlayer {
       }
     }
     if (event.ref.event_id ==
+        generated.mpv_event_id.MPV_EVENT_GET_PROPERTY_REPLY) {
+      final completer = _getPropertyRequests.remove(event.ref.reply_userdata);
+      if (completer == null) {
+        print(
+            'Warning: Received MPV_EVENT_GET_PROPERTY_REPLY with unregistered ID ${event.ref.reply_userdata}');
+      } else {
+        String? value;
+        if (event.ref.error >= 0 && event.ref.data != nullptr) {
+          final prop = event.ref.data.cast<generated.mpv_event_property>();
+          if (prop.ref.format == generated.mpv_format.MPV_FORMAT_STRING &&
+              prop.ref.data != nullptr) {
+            // `data` 指向 `char*`（即 `char**`），并且只在这次回调里有效，所以要当场复制。
+            final string = prop.ref.data.cast<Pointer<Utf8>>().value;
+            if (string != nullptr) {
+              value = string.toDartString();
+            }
+          }
+        } else {
+          _logError(event.ref.error, '_getProperty');
+        }
+        if (!completer.isCompleted) {
+          completer.complete(value);
+        }
+      }
+    }
+    if (event.ref.event_id ==
         generated.mpv_event_id.MPV_EVENT_SET_PROPERTY_REPLY) {
       final completer = _setPropertyRequests.remove(event.ref.reply_userdata);
       if (completer == null) {
@@ -1046,18 +1191,20 @@ class NativePlayer extends PlatformPlayer {
       final prop = event.ref.data.cast<generated.mpv_event_property>();
       final propName = prop.ref.name.cast<Utf8>().toDartString();
       if (observedProperties.containsKey(propName)) {
-        if (prop.ref.format == generated.mpv_format.MPV_FORMAT_NONE) {
-          final fn = observedProperties[propName];
-          if (fn != null) {
-            final data = mpv.mpv_get_property_string(ctx, prop.ref.name);
-            if (data != nullptr) {
-              try {
-                await fn.call(await data.cast<Utf8>().toDartStringAsync());
-              } catch (exception, stacktrace) {
-                print(exception);
-                print(stacktrace);
-              }
-              mpv.mpv_free(data.cast());
+        final fn = observedProperties[propName];
+        // The value comes with the event (observed as MPV_FORMAT_STRING) and is
+        // only valid during this callback, so it is copied right here instead of
+        // reading the property again (a blocking `mpv_get_property_string`).
+        if (fn != null &&
+            prop.ref.format == generated.mpv_format.MPV_FORMAT_STRING &&
+            prop.ref.data != nullptr) {
+          final string = prop.ref.data.cast<Pointer<Utf8>>().value;
+          if (string != nullptr) {
+            try {
+              await fn.call(string.toDartString());
+            } catch (exception, stacktrace) {
+              print(exception);
+              print(stacktrace);
             }
           }
         }
@@ -1808,39 +1955,58 @@ class NativePlayer extends PlatformPlayer {
   }
 
   int _asyncRequestNumber = 0;
+  final Map<int, Completer<String?>> _getPropertyRequests = {};
   final Map<int, Completer<int>> _setPropertyRequests = {};
   final Map<int, Completer<int>> _commandRequests = {};
 
   Future<void> _setProperty(String name, int format, Pointer<Void> data) async {
+    if (configuration.async) {
+      await _setPropertyAsync(name, format, data);
+      return;
+    }
     final namePtr = name.toNativeUtf8();
     try {
-      if (configuration.async) {
-        final requestNumber = _asyncRequestNumber++;
-        final completer =
-            _setPropertyRequests[requestNumber] = Completer<int>();
-        final immediate = mpv.mpv_set_property_async(
-          ctx,
-          requestNumber,
-          namePtr.cast(),
-          format,
-          data,
-        );
-        final text = '_setProperty($name, $format)';
-        if (immediate < 0) {
-          // Sending failed, so no reply event will remove this request.
-          _setPropertyRequests.remove(requestNumber);
-          _logError(immediate, text);
-          return;
-        }
-        _logError(await completer.future, text);
-      } else {
-        mpv.mpv_set_property(
-          ctx,
-          namePtr.cast(),
-          format,
-          data,
-        );
+      mpv.mpv_set_property(
+        ctx,
+        namePtr.cast(),
+        format,
+        data,
+      );
+    } finally {
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Same as [_setProperty], but always sends the request with
+  /// `mpv_set_property_async` and waits for `MPV_EVENT_SET_PROPERTY_REPLY`.
+  /// Returns the libmpv error code (`0` on success).
+  Future<int> _setPropertyAsync(
+    String name,
+    int format,
+    Pointer<Void> data,
+  ) async {
+    final namePtr = name.toNativeUtf8();
+    try {
+      final requestNumber = _asyncRequestNumber++;
+      final completer =
+          _setPropertyRequests[requestNumber] = Completer<int>();
+      final immediate = mpv.mpv_set_property_async(
+        ctx,
+        requestNumber,
+        namePtr.cast(),
+        format,
+        data,
+      );
+      final text = '_setProperty($name, $format)';
+      if (immediate < 0) {
+        // Sending failed, so no reply event will remove this request.
+        _setPropertyRequests.remove(requestNumber);
+        _logError(immediate, text);
+        return immediate;
       }
+      final result = await completer.future;
+      _logError(result, text);
+      return result;
     } finally {
       calloc.free(namePtr);
     }
@@ -1891,28 +2057,50 @@ class NativePlayer extends PlatformPlayer {
   }
 
   Future<void> _command(List<String> args) async {
+    if (configuration.async) {
+      await _commandAsync(args);
+      return;
+    }
     final pointers = args.map<Pointer<Utf8>>((e) => e.toNativeUtf8()).toList();
-    final arr = calloc<Pointer<Utf8>>(128);
+    final arr = calloc<Pointer<Utf8>>(args.length + 1);
     try {
       for (int i = 0; i < args.length; i++) {
         (arr + i).value = pointers[i];
       }
+      (arr + args.length).value = nullptr;
+      mpv.mpv_command(ctx, arr.cast());
+    } finally {
+      calloc.free(arr);
+      pointers.forEach(calloc.free);
+    }
+  }
 
-      if (configuration.async) {
-        final requestNumber = _asyncRequestNumber++;
-        final completer = _commandRequests[requestNumber] = Completer<int>();
-        final immediate = mpv.mpv_command_async(ctx, requestNumber, arr.cast());
-        final text = '_command(${args.join(', ')})';
-        if (immediate < 0) {
-          // Sending failed, so no reply event will remove this request.
-          _commandRequests.remove(requestNumber);
-          _logError(immediate, text);
-          return;
-        }
-        _logError(await completer.future, text);
-      } else {
-        mpv.mpv_command(ctx, arr.cast());
+  /// Same as [_command], but always sends the request with `mpv_command_async`
+  /// and waits for `MPV_EVENT_COMMAND_REPLY`. Returns the libmpv error code
+  /// (`0` on success).
+  Future<int> _commandAsync(List<String> args) async {
+    final pointers = args.map<Pointer<Utf8>>((e) => e.toNativeUtf8()).toList();
+    final arr = calloc<Pointer<Utf8>>(args.length + 1);
+    try {
+      for (int i = 0; i < args.length; i++) {
+        (arr + i).value = pointers[i];
       }
+      // argv 以 `NULL` 结尾
+      (arr + args.length).value = nullptr;
+
+      final requestNumber = _asyncRequestNumber++;
+      final completer = _commandRequests[requestNumber] = Completer<int>();
+      final immediate = mpv.mpv_command_async(ctx, requestNumber, arr.cast());
+      final text = '_command(${args.join(', ')})';
+      if (immediate < 0) {
+        // Sending failed, so no reply event will remove this request.
+        _commandRequests.remove(requestNumber);
+        _logError(immediate, text);
+        return immediate;
+      }
+      final result = await completer.future;
+      _logError(result, text);
+      return result;
     } finally {
       calloc.free(arr);
       pointers.forEach(calloc.free);
