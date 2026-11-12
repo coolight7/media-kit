@@ -38,7 +38,7 @@ abstract class MediaKit {
         nativeEnsureInitialized(libmpv: libmpv);
       }
       _initialized = true;
-    } catch (_) {
+    } catch (e, stack) {
       print(
         '\n'
         '${'-' * 80}\n'
@@ -52,6 +52,9 @@ abstract class MediaKit {
         'TIP: Copy-paste required packages from the above link to your pubspec.yaml.\n'
         '\n'
         'If you recently added the packages, make sure to re-run the project ("hot-restart" & "hot-reload" is not sufficient for native plugins).\n'
+        '\n'
+        "${e.toString()}"
+        '\n'
         '${'-' * 80}\n',
       );
       rethrow;

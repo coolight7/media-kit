@@ -48,32 +48,33 @@ abstract class NativeLibrary {
     }[Platform.operatingSystem];
     if (names != null) {
       // Try to load the dynamic library from the system using [DynamicLibrary.open].
+      String error;
       for (final name in names) {
         try {
           DynamicLibrary.open(name);
           _resolved = name;
           return;
         } catch (e) {
-          if (kDebugMode) {
-            print(e);
-          }
+          error += "${e.toString()}\n\n";
+          print(e);
         }
       }
       // If the dynamic library is not loaded, throw an [Exception].
       if (_resolved == null) {
         throw Exception(
           {
-            'windows':
-                'Cannot find libmpv-2.dll in your system %PATH%. One way to deal with this is to ship libmpv-2.dll with your compiled executable or script in the same directory.',
-            'linux':
-                'Cannot find libmpv at the usual places. Depending upon your distribution, you can install the libmpv package to make shared library available globally. On Debian or Ubuntu based systems, you can install it with: apt install libmpv-dev.',
-            'macos':
-                'Cannot find Mpv.framework/Mpv. Please ensure it\'s presence in the Frameworks folder of the application.',
-            'ios':
-                'Cannot find Mpv.framework/Mpv. Please ensure it\'s presence in the Frameworks folder of the application.',
-            'android':
-                'Cannot find libmpv.so. Please ensure it\'s presence in the APK.',
-          }[Platform.operatingSystem]!,
+                'windows':
+                    'Cannot find libxxx.dll in your system %PATH%. One way to deal with this is to ship libxxx.dll with your compiled executable or script in the same directory.',
+                'linux':
+                    'Cannot find libxxx.so at the usual places. Depending upon your distribution, you can install the libmpv package to make shared library available globally. On Debian or Ubuntu based systems, you can install it with: apt install libmpv-dev.',
+                'macos':
+                    'Cannot find libxxx. Please ensure it\'s presence in the Frameworks folder of the application.',
+                'ios':
+                    'Cannot find libxxx. Please ensure it\'s presence in the Frameworks folder of the application.',
+                'android':
+                    'Cannot find libxxx.so. Please ensure it\'s presence in the APK.',
+              }[Platform.operatingSystem]! +
+              "\n\n$error",
         );
       }
     } else {
