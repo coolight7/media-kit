@@ -48,7 +48,7 @@ abstract class NativeLibrary {
     }[Platform.operatingSystem];
     if (names != null) {
       // Try to load the dynamic library from the system using [DynamicLibrary.open].
-      String error;
+      String error = "";
       for (final name in names) {
         try {
           DynamicLibrary.open(name);
