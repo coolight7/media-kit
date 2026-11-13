@@ -775,7 +775,31 @@ class NativePlayer extends PlatformPlayer {
   /// it (unavailable property, or the request could not be sent). The [Future]
   /// never completes when the [NativePlayer] is disposed while the request is in
   /// flight.
+  ///
+  /// Use [getPropertyAsyncEx] when the libmpv error code is needed (this one
+  /// throws it away).
   Future<String?> getPropertyAsync(
+    String property, {
+    bool waitForInitialization = true,
+  }) async {
+    final (value, _) = await getPropertyAsyncEx(
+      property,
+      waitForInitialization: waitForInitialization,
+    );
+    return value;
+  }
+
+  /// Same as [getPropertyAsync], but also returns the libmpv error code.
+  ///
+  /// The second element is `0` on success and a negative `mpv_error` value
+  /// otherwise (`MPV_ERROR_PROPERTY_NOT_FOUND`, `MPV_ERROR_PROPERTY_UNAVAILABLE`,
+  /// `MPV_ERROR_PROPERTY_FORMAT` …), so callers can tell "the property does not
+  /// exist" from "the property has no value right now".
+  ///
+  /// The value is `null` whenever mpv could not provide it; the [Future] never
+  /// completes when the [NativePlayer] is disposed while the request is in
+  /// flight.
+  Future<(String?, int)> getPropertyAsyncEx(
     String property, {
     bool waitForInitialization = true,
   }) async {
@@ -791,8 +815,8 @@ class NativePlayer extends PlatformPlayer {
     final namePtr = property.toNativeUtf8();
     try {
       final requestNumber = _asyncRequestNumber++;
-      final completer =
-          _getPropertyRequests[requestNumber] = Completer<String?>();
+      final completer = _getPropertyRequests[requestNumber] =
+          Completer<(String?, int)>();
       final immediate = mpv.mpv_get_property_async(
         ctx,
         requestNumber,
@@ -803,7 +827,7 @@ class NativePlayer extends PlatformPlayer {
         // Sending failed, so no reply event will remove this request.
         _getPropertyRequests.remove(requestNumber);
         _logError(immediate, '_getProperty($property)');
-        return null;
+        return (null, immediate);
       }
       return await completer.future;
     } finally {
@@ -909,6 +933,96 @@ class NativePlayer extends PlatformPlayer {
     final reply = property.hashCode;
     observedProperties.remove(property);
     mpv.mpv_unobserve_property(ctx, reply);
+  }
+
+  /// First reply id handed out by [observePropertyEx].
+  ///
+  /// `mpv_unobserve_property()` drops **every** observation registered under the
+  /// same `reply_userdata`, and [observeProperty] uses `property.hashCode` for
+  /// it. Reusing that value here would therefore let a caller cancel media_kit's
+  /// own observation of the same property (the volume / position streams would
+  /// go silent). The counter starts far above any Dart `String.hashCode` (well
+  /// below 2^32) and only grows, so the two id spaces cannot overlap.
+  static const int _observeReplyBase = 1 << 40;
+
+  /// Reply id handed out by the next [observePropertyEx] call.
+  int _observeReplyNumber = _observeReplyBase;
+
+  /// Properties observed through [observePropertyEx], keyed by reply id.
+  final Map<int, void Function(String?)> _propertyObservers =
+      <int, void Function(String?)>{};
+
+  /// Observes a property with a reply id of our own.
+  ///
+  /// Difference from [observeProperty]:
+  /// * the reply id comes from [_observeReplyBase], so the observation can be
+  ///   cancelled without touching the observations media_kit itself created;
+  /// * the libmpv error code is returned (`0` on success, negative otherwise,
+  ///   for example `MPV_ERROR_PROPERTY_FORMAT` for a property which cannot be
+  ///   observed as a string), so "cannot observe this" is visible right away;
+  /// * the listener gets `null` when mpv reports the property as unavailable
+  ///   (`MPV_FORMAT_NONE`).
+  ///
+  /// The returned id is below `0` when the request could not be sent; a
+  /// non-negative id is what [unobservePropertyEx] expects.
+  Future<(int, int)> observePropertyEx(
+    String property,
+    void Function(String?) listener, {
+    bool waitForInitialization = true,
+  }) async {
+    if (disposed) {
+      throw AssertionError('[Player] has been disposed');
+    }
+
+    if (waitForInitialization) {
+      await waitForPlayerInitialization;
+      await waitForVideoControllerInitializationIfAttached;
+    }
+
+    final int reply = _observeReplyNumber++;
+    final name = property.toNativeUtf8();
+    try {
+      // Observe as a string: mpv then puts the value into the change event
+      // itself (`mpv_event_property.data` is a `char *`), so the listener gets
+      // it without an extra blocking `mpv_get_property_string` call.
+      final int rc = mpv.mpv_observe_property(
+        ctx,
+        reply,
+        name.cast(),
+        generated.mpv_format.MPV_FORMAT_STRING,
+      );
+      if (rc < 0) {
+        _logError(rc, '_observeProperty($property)');
+        return (-1, rc);
+      }
+      _propertyObservers[reply] = listener;
+      return (reply, rc);
+    } finally {
+      calloc.free(name);
+    }
+  }
+
+  /// Cancels an observation created by [observePropertyEx].
+  ///
+  /// Only the observation registered under [replyId] is removed; observations
+  /// media_kit created itself keep running. Unknown ids are ignored.
+  Future<void> unobservePropertyEx(
+    int replyId, {
+    bool waitForInitialization = true,
+  }) async {
+    if (disposed) {
+      throw AssertionError('[Player] has been disposed');
+    }
+
+    if (waitForInitialization) {
+      await waitForPlayerInitialization;
+      await waitForVideoControllerInitializationIfAttached;
+    }
+
+    if (null == _propertyObservers.remove(replyId)) {
+      return;
+    }
+    mpv.mpv_unobserve_property(ctx, replyId);
   }
 
   /// Observes event for the internal libmpv instance of this [Player].
@@ -1023,6 +1137,28 @@ class NativePlayer extends PlatformPlayer {
       // e.g. audio-device & audio-device-list seem to be emitted before idle-active.
       final prop = event.ref.data.cast<generated.mpv_event_property>();
       final propName = prop.ref.name.cast<Utf8>().toDartString();
+      // Observations created through `observePropertyEx` are found by their
+      // reply id (they share the id space with nothing else). They are served
+      // before the initialization guard below: a caller asked for these values
+      // explicitly, so none of them may be dropped.
+      final void Function(String?)? exListener =
+          _propertyObservers[event.ref.reply_userdata];
+      if (exListener != null) {
+        String? value;
+        if (prop.ref.format == generated.mpv_format.MPV_FORMAT_STRING &&
+            prop.ref.data != nullptr) {
+          final string = prop.ref.data.cast<Pointer<Utf8>>().value;
+          if (string != nullptr) {
+            value = string.toDartString();
+          }
+        }
+        try {
+          exListener(value);
+        } catch (exception, stacktrace) {
+          print(exception);
+          print(stacktrace);
+        }
+      }
       if (propName == 'idle-active' &&
           prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
         await future;
@@ -1124,7 +1260,7 @@ class NativePlayer extends PlatformPlayer {
           _logError(event.ref.error, '_getProperty');
         }
         if (!completer.isCompleted) {
-          completer.complete(value);
+          completer.complete((value, event.ref.error));
         }
       }
     }
@@ -1955,7 +2091,7 @@ class NativePlayer extends PlatformPlayer {
   }
 
   int _asyncRequestNumber = 0;
-  final Map<int, Completer<String?>> _getPropertyRequests = {};
+  final Map<int, Completer<(String?, int)>> _getPropertyRequests = {};
   final Map<int, Completer<int>> _setPropertyRequests = {};
   final Map<int, Completer<int>> _commandRequests = {};
 
